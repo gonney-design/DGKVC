@@ -46,6 +46,37 @@ import {
 import * as XLSX from "xlsx";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import A4PrintReport from "./A4PrintReport";
+import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
+
+const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
+const hasValidMapsKey = Boolean(GOOGLE_MAPS_API_KEY) && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY' && GOOGLE_MAPS_API_KEY !== '';
+
+function MapCircle({ center, radius }: { center: { lat: number; lng: number }; radius: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const circle = new google.maps.Circle({
+      map,
+      center,
+      radius,
+      fillColor: '#6366f1',
+      fillOpacity: 0.15,
+      strokeColor: '#4f46e5',
+      strokeOpacity: 0.8,
+      strokeWeight: 1.5,
+    });
+    return () => {
+      circle.setMap(null);
+    };
+  }, [map, center, radius]);
+
+  return null;
+}
+
 
 interface AdminDashboardProps {
   settings: Setting;
@@ -528,6 +559,32 @@ export default function AdminDashboard({
     } catch (err) {
       alert("บันทึกการตั้งค่าล้มเหลว");
     }
+  };
+
+  const [adminLocLoading, setAdminLocLoading] = useState(false);
+  const [adminLocError, setAdminLocError] = useState<string | null>(null);
+
+  const handleUseCurrentLocation = () => {
+    setAdminLocLoading(true);
+    setAdminLocError(null);
+    if (!navigator.geolocation) {
+      setAdminLocError("เบราว์เซอร์ของคุณไม่รองรับ Geolocation");
+      setAdminLocLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatInput(position.coords.latitude);
+        setLngInput(position.coords.longitude);
+        setAdminLocLoading(false);
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        setAdminLocError("กรุณาอนุญาตสิทธิ์และเปิด GPS ในเบราว์เซอร์เพื่อดึงตำแหน่งพิกัดของคุณ");
+        setAdminLocLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   };
 
   // Generate A4 Report Print Query
@@ -1622,10 +1679,35 @@ export default function AdminDashboard({
                   
                   {/* Configuration Form */}
                   <div className="bg-slate-50 border border-slate-100 p-6 rounded-3xl space-y-4">
-                    <h4 className="font-heading font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                      <MapPin className="text-cyan-500 w-5 h-5" />
-                      พิกัด GPS ประจำสถาบันการศึกษา
-                    </h4>
+                    <div className="flex justify-between items-center gap-2">
+                      <h4 className="font-heading font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <MapPin className="text-cyan-500 w-5 h-5" />
+                        พิกัด GPS ประจำสถาบันการศึกษา
+                      </h4>
+                      <button
+                        onClick={handleUseCurrentLocation}
+                        disabled={adminLocLoading}
+                        className="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      >
+                        {adminLocLoading ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            กำลังดึงพิกัด...
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="w-3 h-3" />
+                            ใช้พิกัดปัจจุบันของคุณ
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {adminLocError && (
+                      <p className="text-[11px] text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">
+                        ⚠️ {adminLocError}
+                      </p>
+                    )}
 
                     <div className="space-y-3">
                       <div>
@@ -1676,29 +1758,78 @@ export default function AdminDashboard({
                     </div>
                   </div>
 
-                  {/* Geofence visual mock card */}
-                  <div className="bg-slate-50 border border-slate-100 p-6 rounded-3xl space-y-4 flex flex-col justify-between aspect-video md:aspect-auto">
+                  {/* Geofence Map Card */}
+                  <div className="bg-slate-50 border border-slate-100 p-6 rounded-3xl space-y-4 flex flex-col justify-between">
                     <div>
-                      <h4 className="font-heading font-bold text-slate-800 text-sm">ขอบเขตทางภูมิศาสตร์ของวิทยาลัย (Geofence Map)</h4>
+                      <h4 className="font-heading font-bold text-slate-800 text-sm">แผนที่และขอบเขตพิกัดสำหรับการเช็คอิน</h4>
                       <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                        วิทยาลัยอาชีวศึกษาขอนแก่น (Khon Kaen Vocational College) ตั้งอยู่ใจกลางเมืองขอนแก่น บนถนนหน้าเมือง
+                        นักเรียนที่จะเข้าเช็คชื่อได้จะต้องอยู่ในวงกลมรัศมีสีน้ำเงินรอบพิกัดที่กำหนดไว้
                       </p>
                     </div>
 
-                    <div className="h-[200px] bg-slate-200 border border-slate-300 rounded-2xl relative overflow-hidden flex items-center justify-center">
-                      {/* Simple mock vector grid styled map */}
-                      <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1.5px)] [background-size:12px_12px] opacity-70"></div>
-                      
-                      {/* Geofence Circle Overlay */}
-                      <div className="w-32 h-32 rounded-full bg-cyan-400/20 border-2 border-dashed border-cyan-500 flex items-center justify-center animate-pulse z-0">
-                        <span className="text-[10px] text-cyan-700 font-bold font-mono">ขอบเขต {radInput} ม.</span>
+                    {hasValidMapsKey ? (
+                      <div className="h-[280px] bg-slate-200 border border-slate-300 rounded-2xl relative overflow-hidden">
+                        <APIProvider apiKey={GOOGLE_MAPS_API_KEY} version="weekly">
+                          <Map
+                            center={{ lat: latInput, lng: lngInput }}
+                            defaultZoom={17}
+                            mapId="DEMO_MAP_ID"
+                            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                            style={{ width: '100%', height: '100%' }}
+                            onClick={(e) => {
+                              if (e.detail.latLng) {
+                                setLatInput(e.detail.latLng.lat);
+                                setLngInput(e.detail.latLng.lng);
+                              }
+                            }}
+                          >
+                            <AdvancedMarker
+                              position={{ lat: latInput, lng: lngInput }}
+                              draggable={true}
+                              onDragEnd={(e) => {
+                                if (e.latLng) {
+                                  setLatInput(e.latLng.lat());
+                                  setLngInput(e.latLng.lng());
+                                }
+                              }}
+                            >
+                              <Pin background="#ef4444" glyphColor="#fff" />
+                            </AdvancedMarker>
+                            <MapCircle center={{ lat: latInput, lng: lngInput }} radius={radInput} />
+                          </Map>
+                        </APIProvider>
+                        <div className="absolute bottom-2 left-2 right-2 bg-slate-900/95 text-white text-[9.5px] px-2.5 py-1.5 rounded-xl backdrop-blur font-semibold text-center pointer-events-none">
+                          💡 คลิกที่ใดก็ได้บนแผนที่ หรือ ลากหมุดสีแดง เพื่อเปลี่ยนตำแหน่งสถาบัน
+                        </div>
                       </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="h-[200px] bg-slate-200 border border-slate-300 rounded-2xl relative overflow-hidden flex items-center justify-center">
+                          {/* Simple mock vector grid styled map */}
+                          <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1.5px)] [background-size:12px_12px] opacity-70"></div>
+                          
+                          {/* Geofence Circle Overlay */}
+                          <div className="w-32 h-32 rounded-full bg-cyan-400/20 border-2 border-dashed border-cyan-500 flex items-center justify-center animate-pulse z-0">
+                            <span className="text-[10px] text-cyan-700 font-bold font-mono">ขอบเขต {radInput} ม.</span>
+                          </div>
 
-                      <div className="absolute flex flex-col items-center gap-1 z-10">
-                        <MapPin className="w-8 h-8 text-rose-500 filter drop-shadow animate-bounce" />
-                        <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow">วิทยาลัยอาชีวศึกษาขอนแก่น</span>
+                          <div className="absolute flex flex-col items-center gap-1 z-10">
+                            <MapPin className="w-8 h-8 text-rose-500 filter drop-shadow animate-bounce" />
+                            <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow">วิทยาลัยอาชีวศึกษาขอนแก่น</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
+                          <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                            <AlertTriangle className="w-4.5 h-4.5 text-amber-600" />
+                            ต้องการดูพรีวิวแผนที่จริงแบบเรียลไทม์?
+                          </p>
+                          <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                            กรุณาเปิด <strong>Settings (ไอคอนเกียร์ขวาบน) &rarr; Secrets</strong> แล้วระบุชื่อคีย์ <code>GOOGLE_MAPS_PLATFORM_KEY</code> และนำ Google Maps API Key ของคุณมาใส่ จากนั้นระบบจะแสดงแผนที่จริงแบบอินเทอร์แอคทีฟ
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                 </div>

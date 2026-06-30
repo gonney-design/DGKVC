@@ -25,6 +25,37 @@ import {
   Camera
 } from "lucide-react";
 import FaceScanner from "./FaceScanner";
+import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
+
+const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
+const hasValidMapsKey = Boolean(GOOGLE_MAPS_API_KEY) && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY' && GOOGLE_MAPS_API_KEY !== '';
+
+function MapCircle({ center, radius }: { center: { lat: number; lng: number }; radius: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const circle = new google.maps.Circle({
+      map,
+      center,
+      radius,
+      fillColor: '#6366f1',
+      fillOpacity: 0.15,
+      strokeColor: '#4f46e5',
+      strokeOpacity: 0.8,
+      strokeWeight: 1.5,
+    });
+    return () => {
+      circle.setMap(null);
+    };
+  }, [map, center, radius]);
+
+  return null;
+}
+
 
 interface StudentDashboardProps {
   student: Student;
@@ -387,7 +418,8 @@ export default function StudentDashboard({
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                     
                     {/* Geolocation Checker Module */}
                     <div className="bg-slate-50 border border-slate-100 p-6 rounded-3xl flex flex-col justify-between space-y-4">
@@ -493,6 +525,66 @@ export default function StudentDashboard({
                     </div>
 
                   </div>
+
+                  {/* Google Map Card */}
+                  <div className="bg-slate-50 border border-slate-100 p-6 rounded-3xl space-y-4 mt-6">
+                    <div>
+                      <h4 className="font-heading font-bold text-slate-800 text-sm">แผนที่แสดงขอบเขตและตำแหน่งเช็คอินจริง (Check-in Map)</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                        วงกลมสีน้ำเงินแสดงระยะรัศมีเช็คอิน {settings.checkInRadius} เมตรรอบพิกัดสถาบันที่กำหนด หากคุณอยู่นอกวงกลม คุณจะไม่สามารถสแกนใบหน้าเช็คชื่อได้
+                      </p>
+                    </div>
+
+                    {hasValidMapsKey ? (
+                      <div className="h-[300px] bg-slate-200 border border-slate-300 rounded-2xl relative overflow-hidden">
+                        <APIProvider apiKey={GOOGLE_MAPS_API_KEY} version="weekly">
+                          <Map
+                            center={{ lat: settings.collegeLat, lng: settings.collegeLng }}
+                            defaultZoom={17}
+                            mapId="DEMO_MAP_ID"
+                            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                            style={{ width: '100%', height: '100%' }}
+                          >
+                            {/* Marker for College Location */}
+                            <AdvancedMarker position={{ lat: settings.collegeLat, lng: settings.collegeLng }}>
+                              <Pin background="#4f46e5" glyphColor="#fff" />
+                            </AdvancedMarker>
+
+                            {/* Circle for Check-in Radius */}
+                            <MapCircle center={{ lat: settings.collegeLat, lng: settings.collegeLng }} radius={settings.checkInRadius} />
+
+                            {/* Marker for Student current location */}
+                            {userCoords && (
+                              <AdvancedMarker position={{ lat: userCoords.lat, lng: userCoords.lng }}>
+                                <Pin background="#10b981" glyphColor="#fff" scale={1.2} />
+                              </AdvancedMarker>
+                            )}
+                          </Map>
+                        </APIProvider>
+                        <div className="absolute bottom-2 left-2 right-2 flex justify-between gap-2 pointer-events-none">
+                          <span className="bg-slate-900/95 text-white text-[9px] px-2 py-1 rounded-lg backdrop-blur font-semibold">
+                            🔵 จุดศูนย์กลางสถาบัน
+                          </span>
+                          {userCoords && (
+                            <span className="bg-emerald-900/95 text-white text-[9px] px-2 py-1 rounded-lg backdrop-blur font-semibold">
+                              🟢 ตำแหน่งปัจจุบันของคุณ
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
+                        <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                          ต้องการเปิดดูแผนที่พิกัดเช็คอินจริงแบบเรียลไทม์?
+                        </p>
+                        <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                          กรุณาเปิด <strong>Settings (ไอคอนเกียร์ขวาบน) &rarr; Secrets</strong> ใน AI Studio แล้วเพิ่มตัวแปรชื่อ <code>GOOGLE_MAPS_PLATFORM_KEY</code> โดยใส่คีย์ Google Maps ของคุณ เพื่อเปิดใช้งานแผนที่แสดงตำแหน่งและวงกลมขอบเขตเช็คชื่ออย่างชัดเจน
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  </>
                 )}
               </div>
             )}
