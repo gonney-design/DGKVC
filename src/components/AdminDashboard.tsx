@@ -113,7 +113,7 @@ export default function AdminDashboard({
   const [attSubtab, setAttSubtab] = useState<"manual" | "scan">("manual");
   const [attClassroom, setAttClassroom] = useState("");
   const [attDate, setAttDate] = useState("");
-  const [localAttendanceMap, setLocalAttendanceMap] = useState<{ [studentId: string]: "present" | "late" | "absent" | "not_recorded" }>({});
+  const [localAttendanceMap, setLocalAttendanceMap] = useState<{ [studentId: string]: "present" | "absent" | "not_recorded" }>({});
   
   // Scanning Sim state
   const [scanInputId, setScanInputId] = useState("");
@@ -151,7 +151,6 @@ export default function AdminDashboard({
   const [radInput, setRadInput] = useState(settings.checkInRadius);
   const [passInput, setPassInput] = useState(settings.adminPassword || "kvc");
   const [startTimeInput, setStartTimeInput] = useState(settings.checkInStartTime || "06:00");
-  const [lateTimeInput, setLateTimeInput] = useState(settings.lateTimeCutoff || "08:00");
   const [absentTimeInput, setAbsentTimeInput] = useState(settings.absentTimeCutoff || "08:30");
 
   // --- Assets states ---
@@ -199,7 +198,7 @@ export default function AdminDashboard({
     if (!attClassroom) return;
     // Find existing records for this date (for all students)
     const dayRecords = records.filter(r => r.date === attDate);
-    const map: { [studentId: string]: "present" | "late" | "absent" | "not_recorded" } = {};
+    const map: { [studentId: string]: "present" | "absent" | "not_recorded" } = {};
     
     // Check if attDate is today and past cutoff
     const todayStr = new Date().toLocaleDateString("en-CA");
@@ -234,14 +233,14 @@ export default function AdminDashboard({
   }, [attClassroom, attDate, records, students, settings.absentTimeCutoff]);
 
   // Handle Manual Attendance Change
-  const handleToggleStatus = (studentId: string, status: "present" | "late" | "absent" | "not_recorded") => {
+  const handleToggleStatus = (studentId: string, status: "present" | "absent" | "not_recorded") => {
     setLocalAttendanceMap(prev => ({
       ...prev,
       [studentId]: status
     }));
   };
 
-  const handleBulkToggleStatus = (status: "present" | "late" | "absent" | "not_recorded") => {
+  const handleBulkToggleStatus = (status: "present" | "absent" | "not_recorded") => {
     const classStudents = students.filter(s => s.classroomId === attClassroom);
     const newMap = { ...localAttendanceMap };
     classStudents.forEach(s => {
@@ -281,7 +280,7 @@ export default function AdminDashboard({
           classroomId: attClassroom,
           date: attDate,
           timestamp: new Date().toISOString(),
-          status: status as "present" | "late" | "absent",
+          status: status as "present" | "absent",
           method: "manual"
         };
         return saveAttendanceRecord(newRec);
@@ -327,7 +326,7 @@ export default function AdminDashboard({
       const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
 
       // Late after configured time
-      const status: "present" | "late" = timeVal <= cutoffTimeVal ? "present" : "late";
+      const status: "present" | "absent" = timeVal <= cutoffTimeVal ? "present" : "absent";
       const recordId = `${student.id}_${todayStr}`;
       
       const newRec: AttendanceRecord = {
@@ -731,7 +730,6 @@ export default function AdminDashboard({
         checkInRadius: parseInt(String(radInput)),
         adminPassword: passInput,
         checkInStartTime: startTimeInput,
-        lateTimeCutoff: lateTimeInput,
         absentTimeCutoff: absentTimeInput
       };
       await updateSettings(nextSettings);
@@ -796,7 +794,6 @@ export default function AdminDashboard({
   const todayStr = new Date().toLocaleDateString("en-CA");
   const todayRecords = records.filter(r => r.date === todayStr);
   const presentToday = todayRecords.filter(r => r.status === "present").length;
-  const lateToday = todayRecords.filter(r => r.status === "late").length;
   
   let isPastCutoffToday = false;
   const currentTime = new Date();
@@ -811,7 +808,7 @@ export default function AdminDashboard({
 
   let absentToday = todayRecords.filter(r => r.status === "absent").length;
   if (isPastCutoffToday) {
-    const unrecordedCount = totalStudents - presentToday - lateToday - absentToday;
+    const unrecordedCount = totalStudents - presentToday - absentToday;
     absentToday += Math.max(0, unrecordedCount);
   }
 
@@ -845,12 +842,10 @@ export default function AdminDashboard({
   const chartData = daysInPast7.map(dateStr => {
     const dayRecs = records.filter(r => r.date === dateStr);
     const pres = dayRecs.filter(r => r.status === "present").length;
-    const lat = dayRecs.filter(r => r.status === "late").length;
-    const abs = totalStudents > 0 ? Math.max(0, totalStudents - pres - lat) : 0;
+    const abs = totalStudents > 0 ? Math.max(0, totalStudents - pres) : 0;
     return {
       name: dateStr.split("-").slice(1).join("/"), // MM/DD
-      มาทัน: pres,
-      สาย: lat,
+      มา: pres,
       ขาด: abs
     };
   });
@@ -1016,12 +1011,7 @@ export default function AdminDashboard({
                   <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl">
                     <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">มาแถววันนี้</p>
                     <p className="text-2xl font-bold text-emerald-700 mt-1 font-mono">{presentToday}</p>
-                    <p className="text-[10px] text-emerald-500 mt-1">เข้าแถวทันเวลา</p>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
-                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">มาสายวันนี้</p>
-                    <p className="text-2xl font-bold text-amber-700 mt-1 font-mono">{lateToday}</p>
-                    <p className="text-[10px] text-amber-500 mt-1">หลังเวลา {settings.lateTimeCutoff || "08:00"} น.</p>
+                    <p className="text-[10px] text-emerald-500 mt-1">เข้าแถวเรียบร้อย</p>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl">
                     <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">ขาดแถววันนี้</p>
@@ -1060,8 +1050,8 @@ export default function AdminDashboard({
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
                           <Tooltip />
                           <Legend />
-                          <Area type="monotone" dataKey="มาทัน" stroke="#10b981" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} />
-                          <Area type="monotone" dataKey="สาย" stroke="#f59e0b" fillOpacity={1} fill="url(#colorLate)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="มา" stroke="#10b981" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="ขาด" stroke="#f43f5e" fillOpacity={1} fillOpacity={0} strokeWidth={2} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -1244,12 +1234,6 @@ export default function AdminDashboard({
                           มาปกติทั้งหมด
                         </button>
                         <button
-                          onClick={() => handleBulkToggleStatus("late")}
-                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-amber-700 hover:bg-amber-50 hover:shadow-sm"
-                        >
-                          สายทั้งหมด
-                        </button>
-                        <button
                           onClick={() => handleBulkToggleStatus("absent")}
                           className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-rose-700 hover:bg-rose-50 hover:shadow-sm"
                         >
@@ -1304,14 +1288,6 @@ export default function AdminDashboard({
                                         }`}
                                       >
                                         มาปกติ
-                                      </button>
-                                      <button
-                                        onClick={() => handleToggleStatus(s.id, "late")}
-                                        className={`text-[10px] font-bold px-2 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
-                                          currentStatus === "late" ? "bg-amber-500 text-white shadow-sm" : "text-slate-600"
-                                        }`}
-                                      >
-                                        สาย
                                       </button>
                                       <button
                                         onClick={() => handleToggleStatus(s.id, "absent")}
@@ -2159,16 +2135,6 @@ export default function AdminDashboard({
                           type="time"
                           value={startTimeInput}
                           onChange={(e) => setStartTimeInput(e.target.value)}
-                          className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono mb-4"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเข้าแถวสาย</label>
-                        <input
-                          type="time"
-                          value={lateTimeInput}
-                          onChange={(e) => setLateTimeInput(e.target.value)}
                           className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono mb-4"
                         />
                       </div>

@@ -410,10 +410,10 @@ async function seedInitialDataIfNeeded() {
       const records: AttendanceRecord[] = [
         { id: "66302040001_2026-06-29", studentId: "66302040001", classroomId: "DG_3_1", date: "2026-06-29", timestamp: "2026-06-29T07:45:00.000Z", status: "present", method: "scan" },
         { id: "66302040002_2026-06-29", studentId: "66302040002", classroomId: "DG_3_1", date: "2026-06-29", timestamp: "2026-06-29T07:55:00.000Z", status: "present", method: "self", latitude: 16.425330, longitude: 102.827470 },
-        { id: "66302040003_2026-06-29", studentId: "66302040003", classroomId: "DG_3_1", date: "2026-06-29", timestamp: "2026-06-29T08:05:00.000Z", status: "late", method: "manual" },
+        { id: "66302040003_2026-06-29", studentId: "66302040003", classroomId: "DG_3_1", date: "2026-06-29", timestamp: "2026-06-29T08:05:00.000Z", status: "present", method: "manual" },
         { id: "66302040001_2026-06-26", studentId: "66302040001", classroomId: "DG_3_1", date: "2026-06-26", timestamp: "2026-06-26T07:38:00.000Z", status: "present", method: "scan" },
         { id: "66302040002_2026-06-26", studentId: "66302040002", classroomId: "DG_3_1", date: "2026-06-26", timestamp: "2026-06-26T07:42:00.000Z", status: "present", method: "self", latitude: 16.425335, longitude: 102.827472 },
-        { id: "66302040003_2026-06-26", studentId: "66302040003", classroomId: "DG_3_1", date: "2026-06-26", timestamp: "2026-06-26T08:12:00.000Z", status: "late", method: "scan" },
+        { id: "66302040003_2026-06-26", studentId: "66302040003", classroomId: "DG_3_1", date: "2026-06-26", timestamp: "2026-06-26T08:12:00.000Z", status: "present", method: "scan" },
         { id: "67302040011_2026-06-29", studentId: "67302040011", classroomId: "DG_2_1", date: "2026-06-29", timestamp: "2026-06-29T07:50:00.000Z", status: "present", method: "manual" },
         { id: "67302040012_2026-06-29", studentId: "67302040012", classroomId: "DG_2_1", date: "2026-06-29", timestamp: "2026-06-29T07:44:00.000Z", status: "present", method: "manual" }
       ];

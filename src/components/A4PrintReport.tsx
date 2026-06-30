@@ -54,9 +54,8 @@ export default function A4PrintReport({
   // Calculate statistics
   const total = records.length;
   const present = records.filter(r => r.status === "present").length;
-  const late = records.filter(r => r.status === "late").length;
   const absent = records.filter(r => r.status === "absent").length;
-  const presentRate = total > 0 ? Math.round(((present + late) / total) * 100) : 100;
+  const presentRate = total > 0 ? Math.round((present / total) * 100) : 100;
 
   let uniqueDates: string[] = [];
   if (attendanceDays && attendanceDays.length > 0) {
@@ -95,14 +94,12 @@ export default function A4PrintReport({
 
   const studentStats = displayStudents.map(student => {
     let sPresent = 0;
-    let sLate = 0;
     let sAbsent = 0;
 
     uniqueDates.forEach(date => {
       const rec = records.find(r => r.studentId === student.id && r.date === date);
       if (rec) {
         if (rec.status === "present") sPresent++;
-        if (rec.status === "late") sLate++;
         if (rec.status === "absent") sAbsent++;
       } else {
         if (date === todayStr && isPastCutoffToday) {
@@ -114,9 +111,8 @@ export default function A4PrintReport({
     return {
       student,
       present: sPresent,
-      late: sLate,
       absent: sAbsent,
-      total: sPresent + sLate + sAbsent
+      total: sPresent + sAbsent
     };
   });
 
@@ -129,7 +125,7 @@ export default function A4PrintReport({
   });
 
   const handleExportExcel = () => {
-    const headers = ["เลขที่", "รหัสนักเรียน", "ชื่อ - นามสกุล", ...uniqueDates, "มา", "สาย", "ขาด", "รวม"];
+    const headers = ["เลขที่", "รหัสนักเรียน", "ชื่อ - นามสกุล", ...uniqueDates, "มา", "ขาด", "รวม"];
     const rows = studentStats.map((stat, idx) => {
       const rowData: any[] = [
         idx + 1,
@@ -142,7 +138,6 @@ export default function A4PrintReport({
         let mark = "";
         if (rec) {
           if (rec.status === "present") mark = "/";
-          else if (rec.status === "late") mark = "ส";
           else if (rec.status === "absent") mark = "ข";
         } else {
           if (date === todayStr && isPastCutoffToday) mark = "ข";
@@ -150,7 +145,7 @@ export default function A4PrintReport({
         rowData.push(mark);
       });
       
-      rowData.push(stat.present, stat.late, stat.absent, stat.total);
+      rowData.push(stat.present, stat.absent, stat.total);
       return rowData;
     });
 
@@ -226,7 +221,6 @@ export default function A4PrintReport({
                   </th>
                 ))}
                 <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">มา</th>
-                <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">สาย</th>
                 <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">ขาด</th>
                 <th className="py-1.5 px-0.5 text-center w-6 print:w-4">รวม</th>
               </tr>
@@ -251,7 +245,6 @@ export default function A4PrintReport({
                         let color = "text-slate-200 print:text-slate-300";
                         if (rec) {
                           if (rec.status === "present") { mark = "/"; color = "text-emerald-700 print:text-black"; }
-                          else if (rec.status === "late") { mark = "ส"; color = "text-amber-700 print:text-black"; }
                           else if (rec.status === "absent") { mark = "ข"; color = "text-rose-700 print:text-black"; }
                         } else {
                           if (date === todayStr && isPastCutoffToday) {
@@ -265,7 +258,6 @@ export default function A4PrintReport({
                         );
                       })}
                       <td className="py-1 px-0.5 border-r border-slate-200 text-center text-emerald-700 print:text-black font-bold">{stat.present}</td>
-                      <td className="py-1 px-0.5 border-r border-slate-200 text-center text-amber-700 print:text-black font-bold">{stat.late}</td>
                       <td className="py-1 px-0.5 border-r border-slate-200 text-center text-rose-700 print:text-black font-bold">{stat.absent}</td>
                       <td className="py-1 px-0.5 text-center text-slate-800 print:text-black font-bold">{stat.total}</td>
                     </tr>

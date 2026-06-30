@@ -242,11 +242,7 @@ export default function StudentDashboard({
         return;
       }
 
-      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
-      const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
-
-      // Class starts at configured time
-      const status: "present" | "late" = timeVal <= cutoffTimeVal ? "present" : "late";
+      const status: "present" | "absent" = "present";
 
       const recordId = `${student.id}_${todayStr}`;
       const newRecord: AttendanceRecord = {
@@ -358,8 +354,71 @@ export default function StudentDashboard({
 
   const statsTotal = displayRecords.length;
   const statsPresent = displayRecords.filter(r => r.status === "present").length;
-  const statsLate = displayRecords.filter(r => r.status === "late").length;
   const statsAbsent = displayRecords.filter(r => r.status === "absent").length;
+
+  // Compute Streak
+  const sortedDisplay = [...displayRecords]
+    .filter(r => r.status !== 'not_recorded')
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+  let streak = 0;
+  for (const r of sortedDisplay) {
+    if (r.status === 'present') {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  
+  let streakEmoji = "";
+  let streakTitle = "";
+  let streakColor = "text-amber-700";
+  let streakBg = "bg-amber-100";
+  let streakIconColor = "text-amber-500";
+  let streakBorder = "border-amber-100";
+  let streakTextBg = "bg-amber-50";
+
+  if (streak >= 30) {
+    streakEmoji = "👑";
+    streakTitle = "ระดับตำนาน!";
+    streakColor = "text-yellow-700";
+    streakBg = "bg-yellow-100";
+    streakIconColor = "text-yellow-500";
+    streakBorder = "border-yellow-200";
+    streakTextBg = "bg-yellow-50";
+  } else if (streak >= 15) {
+    streakEmoji = "💎";
+    streakTitle = "สุดยอดความสม่ำเสมอ!";
+    streakColor = "text-cyan-700";
+    streakBg = "bg-cyan-100";
+    streakIconColor = "text-cyan-500";
+    streakBorder = "border-cyan-200";
+    streakTextBg = "bg-cyan-50";
+  } else if (streak >= 10) {
+    streakEmoji = "💖";
+    streakTitle = "ทำได้ดีเยี่ยม!";
+    streakColor = "text-pink-700";
+    streakBg = "bg-pink-100";
+    streakIconColor = "text-pink-500";
+    streakBorder = "border-pink-200";
+    streakTextBg = "bg-pink-50";
+  } else if (streak >= 5) {
+    streakEmoji = "🌟";
+    streakTitle = "เยี่ยมมาก!";
+    streakColor = "text-indigo-700";
+    streakBg = "bg-indigo-100";
+    streakIconColor = "text-indigo-500";
+    streakBorder = "border-indigo-200";
+    streakTextBg = "bg-indigo-50";
+  } else if (streak >= 3) {
+    streakEmoji = "🔥";
+    streakTitle = "กำลังมาแรง!";
+    streakColor = "text-amber-700";
+    streakBg = "bg-amber-100";
+    streakIconColor = "text-amber-500";
+    streakBorder = "border-amber-200";
+    streakTextBg = "bg-amber-50";
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto font-sans p-4 md:p-6 text-slate-800">
@@ -382,8 +441,20 @@ export default function StudentDashboard({
             />
           </div>
           <div>
-            <h2 className="font-heading font-bold text-lg text-slate-900 leading-tight">สวัสดี, {student.name}</h2>
+            <h2 className="font-heading font-bold text-lg text-slate-900 leading-tight flex flex-wrap items-center gap-2">
+              สวัสดี, {student.name}
+              {streak >= 3 && (
+                <span className={`inline-flex items-center gap-1.5 ${streakBg} ${streakColor} text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider animate-in zoom-in duration-300 shadow-sm`}>
+                  <span className={`text-base leading-none ${streakIconColor}`}>{streakEmoji}</span> {streakTitle} {streak} วัน
+                </span>
+              )}
+            </h2>
             <p className="text-xs text-slate-500 font-medium mt-1">สาขาวิชาดิจิทัลกราฟิก • {classroomName}</p>
+            {streak >= 3 && (
+              <p className={`text-[10px] ${streakColor} font-medium mt-1.5 ${streakTextBg} inline-block px-2.5 py-1 rounded-lg border ${streakBorder}`}>
+                ขอยกย่องคุณเข้าร่วมกิจกรรมอย่างต่อเนื่องมากกว่า {streak - 1} วันแล้ว! รักษาความดีเยี่ยมนี้ต่อไปนะ
+              </p>
+            )}
           </div>
         </div>
         <button 
@@ -418,11 +489,11 @@ export default function StudentDashboard({
       )}
 
       {/* Primary Dashboard Navigation Tabs */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-6 overflow-x-auto">
+      <div className="grid grid-cols-2 lg:flex lg:flex-row bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-6">
         <button
           id="student-tab-card"
           onClick={() => { setActiveTab("card"); setSelfCheckInSuccess(null); }}
-          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all cursor-pointer ${
             activeTab === "card" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600 hover:bg-slate-200/50"
           }`}
         >
@@ -432,7 +503,7 @@ export default function StudentDashboard({
         <button
           id="student-tab-checkin"
           onClick={() => { setActiveTab("checkin"); setSelfCheckInSuccess(null); }}
-          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all cursor-pointer ${
             activeTab === "checkin" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600 hover:bg-slate-200/50"
           }`}
         >
@@ -442,7 +513,7 @@ export default function StudentDashboard({
         <button
           id="student-tab-history"
           onClick={() => { setActiveTab("history"); setSelfCheckInSuccess(null); }}
-          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all cursor-pointer ${
             activeTab === "history" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600 hover:bg-slate-200/50"
           }`}
         >
@@ -452,7 +523,7 @@ export default function StudentDashboard({
         <button
           id="student-tab-assets"
           onClick={() => { setActiveTab("assets"); setSelfCheckInSuccess(null); }}
-          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl flex-1 transition-all cursor-pointer ${
             activeTab === "assets" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600 hover:bg-slate-200/50"
           }`}
         >
@@ -720,7 +791,7 @@ export default function StudentDashboard({
                 </div>
 
                 {/* Progress Ring Stat Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
                     <div>
                       <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">มาแถวปกติ</p>
@@ -728,15 +799,6 @@ export default function StudentDashboard({
                     </div>
                     <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
                       <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">มาสาย</p>
-                      <p className="text-2xl font-bold text-amber-700 mt-1 font-mono">{statsLate}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
-                      <Clock className="w-5 h-5" />
                     </div>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between">
@@ -767,10 +829,7 @@ export default function StudentDashboard({
                         
                         let badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-100";
                         let statusText = "มาทันเวลา";
-                        if (r.status === "late") {
-                          badgeStyle = "bg-amber-50 text-amber-700 border-amber-100";
-                          statusText = "มาสาย";
-                        } else if (r.status === "absent") {
+                        if (r.status === "absent") {
                           badgeStyle = "bg-rose-50 text-rose-700 border-rose-100";
                           statusText = "ขาดแถว";
                         }

@@ -25,7 +25,7 @@ export interface AttendanceRecord {
   classroomId: string;
   date: string; // YYYY-MM-DD
   timestamp: string; // ISO String
-  status: 'present' | 'late' | 'absent';
+  status: 'present' | 'absent';
   method: 'manual' | 'scan' | 'self';
   latitude?: number;
   longitude?: number;
@@ -58,6 +58,5 @@ export interface Setting {
   checkInRadius: number; // meters
   adminPassword?: string;
   checkInStartTime?: string; // e.g. "06:00"
-  lateTimeCutoff?: string; // e.g. "08:00"
   absentTimeCutoff?: string; // e.g. "08:30"
 }
