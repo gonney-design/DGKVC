@@ -124,6 +124,7 @@ export default function AdminDashboard({
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentRoomId, setNewStudentRoomId] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importClassroomId, setImportClassroomId] = useState("auto");
 
   // --- Schedule sub tab states ---
   const [selectedMonth, setSelectedMonth] = useState("2026-06");
@@ -357,23 +358,30 @@ export default function AdminDashboard({
           // Flexible mapping
           const id = String(row["รหัสนักเรียน"] || row["id"] || row["รหัสประจำตัว"] || "").trim();
           const name = String(row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row["name"] || "").trim();
-          const roomVal = String(row["ห้องเรียน"] || row["ห้อง"] || row["classroomId"] || "").trim();
+          let roomVal = String(row["ห้องเรียน"] || row["ห้อง"] || row["classroomId"] || "").trim();
 
-          if (!id || !name || !roomVal) continue;
+          if (!id || !name) continue;
 
-          // Normalize Classroom ID (e.g., replace slash to underscore for document ID)
-          const cleanRoomId = roomVal.replace("/", "_").replace(".", "_");
-          
-          // If classroom does not exist yet, auto create it
-          const roomExists = classrooms.some(c => c.id === cleanRoomId) || seenClassrooms.has(cleanRoomId);
-          if (!roomExists) {
-            const newRoom: Classroom = {
-              id: cleanRoomId,
-              name: roomVal.includes("สคด") ? roomVal : `สคด.${roomVal}`
-            };
-            await saveClassroom(newRoom);
-            seenClassrooms.add(cleanRoomId);
-            createdRooms++;
+          let cleanRoomId = "";
+
+          if (importClassroomId !== "auto") {
+            cleanRoomId = importClassroomId;
+          } else {
+            if (!roomVal) continue;
+            // Normalize Classroom ID (e.g., replace slash to underscore for document ID)
+            cleanRoomId = roomVal.replace("/", "_").replace(".", "_");
+            
+            // If classroom does not exist yet, auto create it
+            const roomExists = classrooms.some(c => c.id === cleanRoomId) || seenClassrooms.has(cleanRoomId);
+            if (!roomExists) {
+              const newRoom: Classroom = {
+                id: cleanRoomId,
+                name: roomVal.includes("สคด") ? roomVal : `สคด.${roomVal}`
+              };
+              await saveClassroom(newRoom);
+              seenClassrooms.add(cleanRoomId);
+              createdRooms++;
+            }
           }
 
           const studentData: Student = {
@@ -1247,6 +1255,18 @@ export default function AdminDashboard({
                       <Download className="w-4 h-4" />
                       ดาวน์โหลดไฟล์ต้นแบบ
                     </button>
+                    <select
+                      value={importClassroomId}
+                      onChange={(e) => setImportClassroomId(e.target.value)}
+                      className="text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    >
+                      <option value="auto">สร้างห้องอัตโนมัติตามไฟล์ Excel</option>
+                      {classrooms.map(c => (
+                        <option key={`import-${c.id}`} value={c.id}>
+                          นำเข้าสู่ห้อง: {c.name}
+                        </option>
+                      ))}
+                    </select>
                     {/* Excel import upload button */}
                     <label className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-heading text-xs font-semibold px-4 py-2.5 rounded-xl shadow transition-colors cursor-pointer">
                       <Upload className="w-4 h-4" />
