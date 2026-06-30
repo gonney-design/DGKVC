@@ -1,4 +1,4 @@
-import { Classroom, Student, AttendanceRecord, AttendanceDay } from "../types";
+import { Classroom, Student, AttendanceRecord, AttendanceDay, Setting } from "../types";
 import { Printer, X, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useReactToPrint } from "react-to-print";
@@ -16,6 +16,7 @@ interface A4PrintReportProps {
   repStartDate: string;
   repEndDate: string;
   onClose: () => void;
+  settings: Setting;
 }
 
 export default function A4PrintReport({
@@ -29,7 +30,8 @@ export default function A4PrintReport({
   attendanceDays,
   repStartDate,
   repEndDate,
-  onClose
+  onClose,
+  settings
 }: A4PrintReportProps) {
   
   // Map students for quick lookup
@@ -75,11 +77,36 @@ export default function A4PrintReport({
   }
 
   // Calculate summary per student
+  const todayStr = new Date().toLocaleDateString("en-CA");
+  let isPastCutoffToday = false;
+  const currentTime = new Date();
+  const hours = currentTime.getHours();
+  const minutes = currentTime.getMinutes();
+  const timeVal = hours * 100 + minutes;
+  const [cutoffHours, cutoffMinutes] = (settings?.lateTimeCutoff || "08:00").split(":").map(Number);
+  const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+  if (timeVal > cutoffTimeVal) {
+    isPastCutoffToday = true;
+  }
+
   const studentStats = displayStudents.map(student => {
-    const studentRecords = records.filter(r => r.studentId === student.id && uniqueDates.includes(r.date));
-    const sPresent = studentRecords.filter(r => r.status === "present").length;
-    const sLate = studentRecords.filter(r => r.status === "late").length;
-    const sAbsent = studentRecords.filter(r => r.status === "absent").length;
+    let sPresent = 0;
+    let sLate = 0;
+    let sAbsent = 0;
+
+    uniqueDates.forEach(date => {
+      const rec = records.find(r => r.studentId === student.id && r.date === date);
+      if (rec) {
+        if (rec.status === "present") sPresent++;
+        if (rec.status === "late") sLate++;
+        if (rec.status === "absent") sAbsent++;
+      } else {
+        if (date === todayStr && isPastCutoffToday) {
+          sAbsent++;
+        }
+      }
+    });
+
     return {
       student,
       present: sPresent,
@@ -113,6 +140,8 @@ export default function A4PrintReport({
           if (rec.status === "present") mark = "/";
           else if (rec.status === "late") mark = "ส";
           else if (rec.status === "absent") mark = "ข";
+        } else {
+          if (date === todayStr && isPastCutoffToday) mark = "ข";
         }
         rowData.push(mark);
       });
@@ -220,6 +249,10 @@ export default function A4PrintReport({
                           if (rec.status === "present") { mark = "/"; color = "text-emerald-700 print:text-black"; }
                           else if (rec.status === "late") { mark = "ส"; color = "text-amber-700 print:text-black"; }
                           else if (rec.status === "absent") { mark = "ข"; color = "text-rose-700 print:text-black"; }
+                        } else {
+                          if (date === todayStr && isPastCutoffToday) {
+                            mark = "ข"; color = "text-rose-700 print:text-black";
+                          }
                         }
                         return (
                           <td key={date} className={`py-1 px-0 border-r border-slate-200 text-center font-bold text-[8px] print:text-[7px] ${color}`}>

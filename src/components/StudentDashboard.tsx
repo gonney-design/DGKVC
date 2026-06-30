@@ -225,8 +225,11 @@ export default function StudentDashboard({
       const minutes = currentTime.getMinutes();
       const timeVal = hours * 100 + minutes;
 
-      // Class starts at 08:00 AM (800)
-      const status: "present" | "late" = timeVal <= 800 ? "present" : "late";
+      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+      const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+
+      // Class starts at configured time
+      const status: "present" | "late" = timeVal <= cutoffTimeVal ? "present" : "late";
 
       const recordId = `${student.id}_${todayStr}`;
       const newRecord: AttendanceRecord = {
@@ -307,10 +310,39 @@ export default function StudentDashboard({
   };
 
   // Calculate statistics
-  const statsTotal = records.length;
-  const statsPresent = records.filter(r => r.status === "present").length;
-  const statsLate = records.filter(r => r.status === "late").length;
-  const statsAbsent = records.filter(r => r.status === "absent").length;
+  const todayStr = new Date().toLocaleDateString("en-CA");
+  let isPastCutoffToday = false;
+  const currentTime = new Date();
+  const hours = currentTime.getHours();
+  const minutes = currentTime.getMinutes();
+  const timeVal = hours * 100 + minutes;
+  const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+  const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+  if (timeVal > cutoffTimeVal) {
+    isPastCutoffToday = true;
+  }
+
+  // Create a working copy of records, appending a dynamic absent record for today if needed
+  let displayRecords = [...records];
+  if (isPastCutoffToday) {
+    const hasTodayRecord = records.some(r => r.date === todayStr && r.status !== 'not_recorded');
+    if (!hasTodayRecord) {
+      displayRecords.push({
+        id: `dynamic_absent_${todayStr}`,
+        studentId: student.id,
+        classroomId: student.classroomId,
+        date: todayStr,
+        timestamp: new Date().toISOString(),
+        status: "absent",
+        method: "manual"
+      });
+    }
+  }
+
+  const statsTotal = displayRecords.length;
+  const statsPresent = displayRecords.filter(r => r.status === "present").length;
+  const statsLate = displayRecords.filter(r => r.status === "late").length;
+  const statsAbsent = displayRecords.filter(r => r.status === "absent").length;
 
   return (
     <div className="w-full max-w-4xl mx-auto font-sans p-4 md:p-6 text-slate-800">
@@ -707,10 +739,10 @@ export default function StudentDashboard({
                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">บันทึกสถิติรายวัน ({statsTotal} ครั้ง)</p>
                   </div>
                   <div className="divide-y divide-slate-100">
-                    {records.length === 0 ? (
+                    {displayRecords.filter(r => r.status !== 'not_recorded').length === 0 ? (
                       <div className="p-8 text-center text-slate-400 text-xs font-medium">ยังไม่มีข้อมูลการเข้าแถวสำหรับคุณ</div>
                     ) : (
-                      records.map((r) => {
+                      displayRecords.filter(r => r.status !== 'not_recorded').map((r) => {
                         const checkTime = new Date(r.timestamp).toLocaleTimeString("th-TH", {
                           hour: "2-digit",
                           minute: "2-digit"

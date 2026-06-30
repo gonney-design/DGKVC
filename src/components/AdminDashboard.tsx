@@ -150,6 +150,7 @@ export default function AdminDashboard({
   const [lngInput, setLngInput] = useState(settings.collegeLng);
   const [radInput, setRadInput] = useState(settings.checkInRadius);
   const [passInput, setPassInput] = useState(settings.adminPassword || "kvc");
+  const [lateTimeInput, setLateTimeInput] = useState(settings.lateTimeCutoff || "08:00");
 
   // --- Assets states ---
   const [newAssetName, setNewAssetName] = useState("");
@@ -198,13 +199,37 @@ export default function AdminDashboard({
     const dayRecords = records.filter(r => r.classroomId === attClassroom && r.date === attDate);
     const map: { [studentId: string]: "present" | "late" | "absent" | "not_recorded" } = {};
     
+    // Check if attDate is today and past cutoff
+    const todayStr = new Date().toLocaleDateString("en-CA");
+    let isPastCutoffToday = false;
+    if (attDate === todayStr) {
+      const currentTime = new Date();
+      const hours = currentTime.getHours();
+      const minutes = currentTime.getMinutes();
+      const timeVal = hours * 100 + minutes;
+      
+      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+      const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+      if (timeVal > cutoffTimeVal) {
+        isPastCutoffToday = true;
+      }
+    }
+
     // Fill with default "not_recorded" or existing record status
     students.filter(s => s.classroomId === attClassroom).forEach(s => {
       const match = dayRecords.find(r => r.studentId === s.id);
-      map[s.id] = match ? match.status : "not_recorded";
+      if (match) {
+        map[s.id] = match.status;
+      } else {
+        if (attDate === todayStr && isPastCutoffToday) {
+          map[s.id] = "absent";
+        } else {
+          map[s.id] = "not_recorded";
+        }
+      }
     });
     setLocalAttendanceMap(map);
-  }, [attClassroom, attDate, records, students]);
+  }, [attClassroom, attDate, records, students, settings.lateTimeCutoff]);
 
   // Handle Manual Attendance Change
   const handleToggleStatus = (studentId: string, status: "present" | "late" | "absent" | "not_recorded") => {
@@ -296,8 +321,11 @@ export default function AdminDashboard({
       const minutes = currentTime.getMinutes();
       const timeVal = hours * 100 + minutes;
 
-      // Late after 08:00
-      const status: "present" | "late" = timeVal <= 800 ? "present" : "late";
+      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+      const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+
+      // Late after configured time
+      const status: "present" | "late" = timeVal <= cutoffTimeVal ? "present" : "late";
       const recordId = `${student.id}_${todayStr}`;
       
       const newRec: AttendanceRecord = {
@@ -695,7 +723,8 @@ export default function AdminDashboard({
         collegeLat: parseFloat(String(latInput)),
         collegeLng: parseFloat(String(lngInput)),
         checkInRadius: parseInt(String(radInput)),
-        adminPassword: passInput
+        adminPassword: passInput,
+        lateTimeCutoff: lateTimeInput
       };
       await updateSettings(nextSettings);
       onSettingsUpdate(nextSettings);
@@ -762,7 +791,23 @@ export default function AdminDashboard({
   const todayRecords = records.filter(r => r.date === todayStr);
   const presentToday = todayRecords.filter(r => r.status === "present").length;
   const lateToday = todayRecords.filter(r => r.status === "late").length;
-  const absentToday = totalStudents - presentToday - lateToday;
+  
+  let isPastCutoffToday = false;
+  const currentTime = new Date();
+  const hours = currentTime.getHours();
+  const minutes = currentTime.getMinutes();
+  const timeVal = hours * 100 + minutes;
+  const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+  const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+  if (timeVal > cutoffTimeVal) {
+    isPastCutoffToday = true;
+  }
+
+  let absentToday = todayRecords.filter(r => r.status === "absent").length;
+  if (isPastCutoffToday) {
+    const unrecordedCount = totalStudents - presentToday - lateToday - absentToday;
+    absentToday += Math.max(0, unrecordedCount);
+  }
 
   // Render Charts Data (Weekly trend)
   const daysInPast7 = Array.from({ length: 7 }, (_, i) => {
@@ -970,7 +1015,7 @@ export default function AdminDashboard({
                   <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
                     <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">มาสายวันนี้</p>
                     <p className="text-2xl font-bold text-amber-700 mt-1 font-mono">{lateToday}</p>
-                    <p className="text-[10px] text-amber-500 mt-1">หลังเวลา 08.00 น.</p>
+                    <p className="text-[10px] text-amber-500 mt-1">หลังเวลา {settings.lateTimeCutoff || "08:00"} น.</p>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl">
                     <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">ขาดแถววันนี้</p>
@@ -2098,6 +2143,16 @@ export default function AdminDashboard({
                           type="text"
                           value={passInput}
                           onChange={(e) => setPassInput(e.target.value)}
+                          className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono mb-4"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเข้าแถวสาย (ระบุเวลา, เช่น 08:00)</label>
+                        <input
+                          type="time"
+                          value={lateTimeInput}
+                          onChange={(e) => setLateTimeInput(e.target.value)}
                           className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono"
                         />
                       </div>
@@ -2209,6 +2264,7 @@ export default function AdminDashboard({
           repStartDate={repStartDate}
           repEndDate={repEndDate}
           onClose={() => setShowA4Modal(false)}
+          settings={settings}
         />
       )}
 
