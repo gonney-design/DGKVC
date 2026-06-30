@@ -376,7 +376,7 @@ export default function AdminDashboard({
             if (!roomExists) {
               const newRoom: Classroom = {
                 id: cleanRoomId,
-                name: roomVal.includes("สคด") ? roomVal : `สคด.${roomVal}`
+                name: roomVal
               };
               await saveClassroom(newRoom);
               seenClassrooms.add(cleanRoomId);
