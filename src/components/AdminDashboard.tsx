@@ -48,6 +48,7 @@ import {
 import * as XLSX from "xlsx";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import A4PrintReport from "./A4PrintReport";
+import QRScanner from "./QRScanner";
 import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY =
@@ -263,11 +264,9 @@ export default function AdminDashboard({
     }
   };
 
-  // Scan Code attendance simulation
-  const handleBarcodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const processScanResult = async (scannedId: string) => {
     setScanMessage(null);
-    const id = scanInputId.trim();
+    const id = scannedId.trim();
     if (!id) return;
 
     const student = students.find(s => s.id === id || s.barcode === id);
@@ -327,6 +326,12 @@ export default function AdminDashboard({
       console.error("Barcode check-in failed:", err);
       setScanMessage({ type: "error", text: "เกิดข้อผิดพลาดในการบันทึกข้อมูลสแกน" });
     }
+  };
+
+  // Scan Code attendance simulation
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await processScanResult(scanInputId);
   };
 
   // Excel Template Download
@@ -1282,24 +1287,21 @@ export default function AdminDashboard({
                 {attSubtab === "scan" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                     
-                    {/* Simulated Scanner camera frame */}
+                    {/* Scanner camera frame */}
                     <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-between items-center text-center relative overflow-hidden aspect-square max-w-[360px] mx-auto border-2 border-slate-800">
-                      {/* Grid background */}
-                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:24px_24px] opacity-25"></div>
                       
-                      {/* Scan frame target lines */}
-                      <div className="absolute top-8 left-8 w-8 h-8 border-t-4 border-l-4 border-cyan-400"></div>
-                      <div className="absolute top-8 right-8 w-8 h-8 border-t-4 border-r-4 border-cyan-400"></div>
-                      <div className="absolute bottom-8 left-8 w-8 h-8 border-b-4 border-l-4 border-cyan-400"></div>
-                      <div className="absolute bottom-8 right-8 w-8 h-8 border-b-4 border-r-4 border-cyan-400"></div>
-
-                      <div className="absolute top-0 left-0 w-full h-1 bg-cyan-400 animate-scan shadow-[0_0_15px_#22d3ee] z-10"></div>
-
-                      <div className="my-auto z-10 space-y-3">
-                        <QrCode className="w-16 h-16 text-cyan-400 animate-pulse mx-auto" />
-                        <h4 className="font-heading font-bold text-sm text-slate-200">เครื่องสแกนบาร์โค้ดจำลอง</h4>
+                      <div className="w-full relative z-10 flex-1 flex flex-col justify-center min-h-0">
+                        <QRScanner
+                          onScanSuccess={processScanResult}
+                          onScanFailure={(err) => {
+                            // ignore continuous scan errors
+                          }}
+                        />
+                      </div>
+                      <div className="my-auto z-10 space-y-1 mb-2 mt-4">
+                        <h4 className="font-heading font-bold text-sm text-slate-200">เครื่องสแกน QR Code / บาร์โค้ด</h4>
                         <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
-                          พิมพ์รหัสนักเรียนหรือนำเครื่องสแกนยิงบาร์โค้ดลงในช่องอินพุตเพื่อทดสอบจำลองเสมือนจริงในชั้นเรียน
+                          ส่อง QR Code นักเรียนที่กล้อง หรือพิมพ์รหัส/ยิงบาร์โค้ดลงในช่องด้านล่าง
                         </p>
                       </div>
 
