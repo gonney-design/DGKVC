@@ -9,6 +9,7 @@ import {
   deleteClassroom,
   getAttendanceDays,
   saveAttendanceDay,
+  deleteAttendanceDay,
   getAttendanceRecords,
   saveAttendanceRecord,
   getAssets,
@@ -131,6 +132,7 @@ export default function AdminDashboard({
   // --- Schedule sub tab states ---
   const [selectedMonth, setSelectedMonth] = useState("2026-06");
   const [schedNotes, setSchedNotes] = useState("");
+  const [editingDate, setEditingDate] = useState<string | null>(null);
 
   // --- Report and Export states ---
   const [repType, setRepType] = useState<"daily" | "weekly" | "monthly">("daily");
@@ -629,11 +631,31 @@ export default function AdminDashboard({
         notes: schedNotes || "อัปเดตสถานะวันเข้าแถวโดยอาจารย์"
       });
       setSchedNotes("");
+      setEditingDate(null);
       alert("อัปเดตวันทำกิจกรรมเสร็จสมบูรณ์");
       loadAllData();
     } catch (err) {
       alert("เกิดข้อผิดพลาด");
     }
+  };
+
+  const handleDeleteDayStatus = async (dateStr: string) => {
+    if (!confirm(`คุณต้องการลบกิจกรรมของวันที่ ${dateStr} ใช่หรือไม่?`)) return;
+    try {
+      await deleteAttendanceDay(dateStr);
+      setSchedNotes("");
+      setEditingDate(null);
+      alert("ลบกิจกรรมเสร็จสมบูรณ์");
+      loadAllData();
+    } catch (err) {
+      alert("เกิดข้อผิดพลาด");
+    }
+  };
+
+  const openDayEditor = (dateStr: string) => {
+    const dayData = attendanceDays.find(x => x.date === dateStr);
+    setEditingDate(dateStr);
+    setSchedNotes(dayData?.notes || "");
   };
 
   // Settings Save
@@ -1620,17 +1642,6 @@ export default function AdminDashboard({
                   <div className="md:col-span-2 bg-slate-50 border border-slate-100 p-5 rounded-3xl space-y-4">
                     <h4 className="font-heading font-bold text-slate-800 text-sm">ปฏิทินวันกิจกรรมที่บันทึกแล้ว</h4>
                     
-                    <div className="bg-white p-3 rounded-2xl border border-slate-100">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">กรอกหมายเหตุ หรือกิจกรรม (เมื่อเปลี่ยนวันงดเว้น/วันกิจกรรม)</label>
-                      <input
-                        type="text"
-                        placeholder="เช่น วันหยุดราชการ, วันไหว้ครู, กิจกรรมกีฬาสี"
-                        value={schedNotes}
-                        onChange={(e) => setSchedNotes(e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-cyan-500"
-                      />
-                    </div>
-
                     <div className="border border-slate-200 rounded-2xl bg-white p-4">
                       {/* Calendar View */}
                       <div className="grid grid-cols-7 gap-1 mb-2 text-center">
@@ -1672,7 +1683,11 @@ export default function AdminDashboard({
                             }
                             
                             return (
-                              <div key={i} className={`h-16 md:h-20 rounded-xl p-1.5 flex flex-col relative group transition-colors hover:shadow-sm ${bgClass}`}>
+                              <div 
+                                key={i} 
+                                onClick={() => openDayEditor(dateStr)}
+                                className={`h-16 md:h-20 rounded-xl p-1.5 flex flex-col relative group transition-colors hover:shadow-sm cursor-pointer ${bgClass}`}
+                              >
                                 <div className="flex justify-between items-start">
                                   <span className="text-xs font-bold font-mono">{d}</span>
                                   {icon}
@@ -1682,21 +1697,6 @@ export default function AdminDashboard({
                                     {dayData.notes}
                                   </div>
                                 )}
-                                
-                                {/* Hover Actions */}
-                                <div className="absolute inset-x-0 bottom-1 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-                                  <div className="flex bg-slate-900/90 p-0.5 rounded-lg shadow-md scale-90 gap-0.5">
-                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "active"); }} className="p-1 hover:bg-slate-800 rounded text-emerald-400" title="เข้าแถวปกติ">
-                                      <Check className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "cancelled"); }} className="p-1 hover:bg-slate-800 rounded text-rose-400" title="งดเข้าแถว">
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "event"); }} className="p-1 hover:bg-slate-800 rounded text-amber-400" title="กิจกรรม">
-                                      <AlertTriangle className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
                               </div>
                             );
                           });
@@ -2158,6 +2158,58 @@ export default function AdminDashboard({
           classrooms={classrooms}
           onClose={() => setShowA4Modal(false)}
         />
+      )}
+
+      {/* Edit Day Status Modal */}
+      {editingDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl space-y-5 animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="font-heading font-bold text-lg text-slate-800">
+                จัดการกิจกรรมวันที่ {editingDate}
+              </h3>
+              <button onClick={() => { setEditingDate(null); setSchedNotes(""); }} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">หมายเหตุ / ชื่อกิจกรรม</label>
+               <input
+                 type="text"
+                 placeholder="เช่น วันหยุดราชการ, กิจกรรมกีฬาสี"
+                 value={schedNotes}
+                 onChange={(e) => setSchedNotes(e.target.value)}
+                 className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
+               />
+            </div>
+
+            <div className="space-y-3">
+               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">เลือกสถานะ</label>
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                 <button onClick={() => handleSaveDayStatus(editingDate, "active")} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer">
+                   <Check className="w-5 h-5" />
+                   <span className="text-xs font-bold">เข้าแถวปกติ</span>
+                 </button>
+                 <button onClick={() => handleSaveDayStatus(editingDate, "cancelled")} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer">
+                   <X className="w-5 h-5" />
+                   <span className="text-xs font-bold">งดเข้าแถว</span>
+                 </button>
+                 <button onClick={() => handleSaveDayStatus(editingDate, "event")} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer">
+                   <AlertTriangle className="w-5 h-5" />
+                   <span className="text-xs font-bold">มีกิจกรรมอื่น</span>
+                 </button>
+               </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+               <button onClick={() => handleDeleteDayStatus(editingDate)} className="w-full flex items-center justify-center gap-2 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-4 py-3 rounded-xl font-bold text-sm transition-colors cursor-pointer">
+                 <Trash2 className="w-4 h-4" />
+                 ลบข้อมูลของวันนี้
+               </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

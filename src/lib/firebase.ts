@@ -236,6 +236,16 @@ export async function saveAttendanceDay(day: AttendanceDay): Promise<void> {
   }
 }
 
+export async function deleteAttendanceDay(date: string): Promise<void> {
+  const path = `attendanceDays/${date}`;
+  try {
+    const docRef = doc(db, "attendanceDays", date);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 // --- ATTENDANCE RECORDS ---
 export async function getAttendanceRecords(): Promise<AttendanceRecord[]> {
   const path = "attendanceRecords";

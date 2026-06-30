@@ -139,7 +139,8 @@ export default function StudentDashboard({
       const todayStr = new Date().toLocaleDateString("sv-SE");
       const upcoming = allDays
         .filter(d => d.date >= todayStr && (d.status === 'event' || d.status === 'cancelled' || d.notes))
-        .sort((a, b) => a.date.localeCompare(b.date));
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 2);
       setUpcomingEvents(upcoming);
     } catch (error) {
       console.error("Error fetching student dashboard data:", error);
