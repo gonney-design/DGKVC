@@ -26,6 +26,7 @@ export default function FaceScanner({
   const [progress, setProgress] = useState(0);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -85,6 +86,8 @@ export default function FaceScanner({
     }
   }, [hasCamera, stream]);
 
+  const handleCaptureRef = useRef<() => void>();
+  
   const handleCapture = async () => {
     if (!modelsLoaded) {
       setStatusText("กำลังโหลด AI Model กรุณารอสักครู่...");
@@ -189,6 +192,25 @@ export default function FaceScanner({
       }, 1000);
     }
   };
+
+  useEffect(() => {
+    handleCaptureRef.current = handleCapture;
+  });
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (autoScanEnabled && modelsLoaded && hasCamera !== null && scanStep === "ready") {
+      // Allow 2 seconds for user to position their face
+      timer = setTimeout(() => {
+        if (handleCaptureRef.current) {
+          handleCaptureRef.current();
+        }
+      }, 2000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [autoScanEnabled, modelsLoaded, hasCamera, scanStep]);
 
   return (
     <div id="face-scanner-modal" className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-white">
@@ -333,11 +355,13 @@ export default function FaceScanner({
         {scanStep === "ready" && (
           <button
             id="capture-face-btn"
-            onClick={handleCapture}
-            className="mt-6 w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 text-white font-medium py-3 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+            onClick={() => {
+               if (handleCaptureRef.current) handleCaptureRef.current();
+            }}
+            className="mt-6 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
           >
-            <Camera className="w-5 h-5" />
-            <span className="font-heading">ถ่ายภาพสแกนใบหน้า</span>
+            <Camera className="w-5 h-5 text-cyan-400" />
+            <span className="font-heading">กำลังสแกนใบหน้าอัตโนมัติ... (กดเพื่อสแกนทันที)</span>
           </button>
         )}
       </div>
