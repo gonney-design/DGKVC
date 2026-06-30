@@ -29,7 +29,7 @@ import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-goo
 
 const GOOGLE_MAPS_API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   '';
 const hasValidMapsKey = Boolean(GOOGLE_MAPS_API_KEY) && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY' && GOOGLE_MAPS_API_KEY !== '';
 
@@ -579,7 +579,9 @@ export default function StudentDashboard({
                           ต้องการเปิดดูแผนที่พิกัดเช็คอินจริงแบบเรียลไทม์?
                         </p>
                         <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                          กรุณาเปิด <strong>Settings (ไอคอนเกียร์ขวาบน) &rarr; Secrets</strong> ใน AI Studio แล้วเพิ่มตัวแปรชื่อ <code>GOOGLE_MAPS_PLATFORM_KEY</code> โดยใส่คีย์ Google Maps ของคุณ เพื่อเปิดใช้งานแผนที่แสดงตำแหน่งและวงกลมขอบเขตเช็คชื่ออย่างชัดเจน
+                          <strong>วิธีแสดงแผนที่:</strong><br/>
+                          - <strong>บน AI Studio:</strong> เปิด Settings (ขวาบน) &rarr; Secrets เพิ่มคีย์ <code>GOOGLE_MAPS_PLATFORM_KEY</code><br/>
+                          - <strong>บน Vercel/ผู้ให้บริการอื่นๆ:</strong> ไปที่ Settings &rarr; Environment Variables แล้วเพิ่ม <code>VITE_GOOGLE_MAPS_PLATFORM_KEY</code> พร้อมระบุ API Key ของคุณ
                         </p>
                       </div>
                     )}
