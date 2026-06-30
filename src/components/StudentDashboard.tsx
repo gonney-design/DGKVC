@@ -138,7 +138,7 @@ export default function StudentDashboard({
 
       const allDays = await getAttendanceDays();
       setAttendanceDays(allDays);
-      const todayStr = new Date().toLocaleDateString("sv-SE");
+      const todayStr = new Date().toLocaleDateString("en-CA");
       const upcoming = allDays
         .filter(d => d.date >= todayStr && (d.status === 'event' || d.status === 'cancelled' || d.notes))
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -211,7 +211,7 @@ export default function StudentDashboard({
       }
 
       // 2. Check if attendance day exists
-      const todayStr = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD local
+      const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
       const dayExists = attendanceDays.some(d => d.date === todayStr && d.status !== 'cancelled');
       if (!dayExists) {
         setSelfCheckInSuccess("ไม่มีการเข้าแถวในวันนี้");
@@ -224,6 +224,23 @@ export default function StudentDashboard({
       const hours = currentTime.getHours();
       const minutes = currentTime.getMinutes();
       const timeVal = hours * 100 + minutes;
+
+      const [startHours, startMinutes] = (settings.checkInStartTime || "06:00").split(":").map(Number);
+      const startTimeVal = startHours * 100 + startMinutes;
+      const [absentHours, absentMinutes] = (settings.absentTimeCutoff || "08:30").split(":").map(Number);
+      const absentTimeVal = absentHours * 100 + absentMinutes;
+
+      if (timeVal < startTimeVal) {
+        setSelfCheckInSuccess(`ยังไม่ถึงเวลาเช็คชื่อ (เริ่ม ${settings.checkInStartTime || "06:00"} น.)`);
+        setShowScanner(false);
+        return;
+      }
+
+      if (timeVal > absentTimeVal) {
+        setSelfCheckInSuccess("หมดเวลาเช็คชื่อแล้ว (ขาดแถวอัตโนมัติ)");
+        setShowScanner(false);
+        return;
+      }
 
       const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
       const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
@@ -316,7 +333,7 @@ export default function StudentDashboard({
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const timeVal = hours * 100 + minutes;
-  const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+  const [cutoffHours, cutoffMinutes] = (settings.absentTimeCutoff || "08:30").split(":").map(Number);
   const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
   if (timeVal > cutoffTimeVal) {
     isPastCutoffToday = true;

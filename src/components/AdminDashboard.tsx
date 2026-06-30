@@ -138,8 +138,8 @@ export default function AdminDashboard({
 
   // --- Report and Export states ---
   const [repClassroom, setRepClassroom] = useState("all");
-  const [repStartDate, setRepStartDate] = useState(new Date().toLocaleDateString("sv-SE"));
-  const [repEndDate, setRepEndDate] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [repStartDate, setRepStartDate] = useState(new Date().toLocaleDateString("en-CA"));
+  const [repEndDate, setRepEndDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [printableRecords, setPrintableRecords] = useState<AttendanceRecord[]>([]);
   const [showA4Modal, setShowA4Modal] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
@@ -150,7 +150,9 @@ export default function AdminDashboard({
   const [lngInput, setLngInput] = useState(settings.collegeLng);
   const [radInput, setRadInput] = useState(settings.checkInRadius);
   const [passInput, setPassInput] = useState(settings.adminPassword || "kvc");
+  const [startTimeInput, setStartTimeInput] = useState(settings.checkInStartTime || "06:00");
   const [lateTimeInput, setLateTimeInput] = useState(settings.lateTimeCutoff || "08:00");
+  const [absentTimeInput, setAbsentTimeInput] = useState(settings.absentTimeCutoff || "08:30");
 
   // --- Assets states ---
   const [newAssetName, setNewAssetName] = useState("");
@@ -195,8 +197,8 @@ export default function AdminDashboard({
   // Update attendance check grid when room or date changes
   useEffect(() => {
     if (!attClassroom) return;
-    // Find existing records for this class on this date
-    const dayRecords = records.filter(r => r.classroomId === attClassroom && r.date === attDate);
+    // Find existing records for this date (for all students)
+    const dayRecords = records.filter(r => r.date === attDate);
     const map: { [studentId: string]: "present" | "late" | "absent" | "not_recorded" } = {};
     
     // Check if attDate is today and past cutoff
@@ -208,7 +210,7 @@ export default function AdminDashboard({
       const minutes = currentTime.getMinutes();
       const timeVal = hours * 100 + minutes;
       
-      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+      const [cutoffHours, cutoffMinutes] = (settings.absentTimeCutoff || "08:30").split(":").map(Number);
       const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
       if (timeVal > cutoffTimeVal) {
         isPastCutoffToday = true;
@@ -229,7 +231,7 @@ export default function AdminDashboard({
       }
     });
     setLocalAttendanceMap(map);
-  }, [attClassroom, attDate, records, students, settings.lateTimeCutoff]);
+  }, [attClassroom, attDate, records, students, settings.absentTimeCutoff]);
 
   // Handle Manual Attendance Change
   const handleToggleStatus = (studentId: string, status: "present" | "late" | "absent" | "not_recorded") => {
@@ -307,7 +309,7 @@ export default function AdminDashboard({
     }
 
     try {
-      const todayStr = new Date().toLocaleDateString("sv-SE");
+      const todayStr = new Date().toLocaleDateString("en-CA");
       
       const dayExists = attendanceDays.some(d => d.date === todayStr && d.status !== 'cancelled');
       if (!dayExists) {
@@ -661,7 +663,7 @@ export default function AdminDashboard({
         
         // Match Mon, Wed, Fri (1, 3, 5)
         if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
-          const dateStr = currentDate.toLocaleDateString("sv-SE");
+          const dateStr = currentDate.toLocaleDateString("en-CA");
           const dayName = dayOfWeek === 1 ? "จันทร์" : dayOfWeek === 3 ? "พุธ" : "ศุกร์";
           
           await saveAttendanceDay({
@@ -681,7 +683,11 @@ export default function AdminDashboard({
   };
 
   // Save specific day settings manually
-  const handleSaveDayStatus = async (dateStr: string, status: "active" | "cancelled" | "event") => {
+  const handleSaveDayStatus = async (dateStr: string | null, status: "active" | "cancelled" | "event") => {
+    if (!dateStr || dateStr.trim() === "") {
+      alert("กรุณาระบุวันที่");
+      return;
+    }
     try {
       await saveAttendanceDay({
         date: dateStr,
@@ -724,7 +730,9 @@ export default function AdminDashboard({
         collegeLng: parseFloat(String(lngInput)),
         checkInRadius: parseInt(String(radInput)),
         adminPassword: passInput,
-        lateTimeCutoff: lateTimeInput
+        checkInStartTime: startTimeInput,
+        lateTimeCutoff: lateTimeInput,
+        absentTimeCutoff: absentTimeInput
       };
       await updateSettings(nextSettings);
       onSettingsUpdate(nextSettings);
@@ -774,11 +782,9 @@ export default function AdminDashboard({
       subtitleLabel = `ตั้งแต่วันที่ ${repStartDate} ถึง ${repEndDate}`;
     }
 
-    // Filter by classroom
-    if (repClassroom !== "all") {
-      filtered = filtered.filter(r => r.classroomId === repClassroom);
-    }
-
+    // No need to filter records by classroom here, because A4PrintReport filters the students,
+    // and finds records by studentId. If we filter records by classroom, we might miss records 
+    // for students who changed classrooms.
     setPrintableRecords(filtered);
     setReportTitle("รายงานสรุปการเข้าแถวทำกิจกรรมหน้าเสาธง");
     setReportSubtitle(subtitleLabel);
@@ -787,7 +793,7 @@ export default function AdminDashboard({
 
   // Analytics helper stats
   const totalStudents = students.length;
-  const todayStr = new Date().toLocaleDateString("sv-SE");
+  const todayStr = new Date().toLocaleDateString("en-CA");
   const todayRecords = records.filter(r => r.date === todayStr);
   const presentToday = todayRecords.filter(r => r.status === "present").length;
   const lateToday = todayRecords.filter(r => r.status === "late").length;
@@ -797,7 +803,7 @@ export default function AdminDashboard({
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const timeVal = hours * 100 + minutes;
-  const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
+  const [cutoffHours, cutoffMinutes] = (settings.absentTimeCutoff || "08:30").split(":").map(Number);
   const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
   if (timeVal > cutoffTimeVal) {
     isPastCutoffToday = true;
@@ -813,7 +819,7 @@ export default function AdminDashboard({
   const daysInPast7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    return d.toLocaleDateString("sv-SE");
+    return d.toLocaleDateString("en-CA");
   }).reverse();
 
   // Calculate Asset stats for overview
@@ -2148,11 +2154,31 @@ export default function AdminDashboard({
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเข้าแถวสาย (ระบุเวลา, เช่น 08:00)</label>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเริ่มเช็คชื่อ</label>
+                        <input
+                          type="time"
+                          value={startTimeInput}
+                          onChange={(e) => setStartTimeInput(e.target.value)}
+                          className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono mb-4"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเข้าแถวสาย</label>
                         <input
                           type="time"
                           value={lateTimeInput}
                           onChange={(e) => setLateTimeInput(e.target.value)}
+                          className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono mb-4"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาขาดแถวอัตโนมัติ (สิ้นสุดเช็คชื่อ)</label>
+                        <input
+                          type="time"
+                          value={absentTimeInput}
+                          onChange={(e) => setAbsentTimeInput(e.target.value)}
                           className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono"
                         />
                       </div>

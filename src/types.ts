@@ -57,5 +57,7 @@ export interface Setting {
   collegeLng: number;
   checkInRadius: number; // meters
   adminPassword?: string;
+  checkInStartTime?: string; // e.g. "06:00"
   lateTimeCutoff?: string; // e.g. "08:00"
+  absentTimeCutoff?: string; // e.g. "08:30"
 }

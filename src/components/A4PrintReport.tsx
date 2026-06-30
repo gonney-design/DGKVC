@@ -61,13 +61,17 @@ export default function A4PrintReport({
   let uniqueDates: string[] = [];
   if (attendanceDays && attendanceDays.length > 0) {
     uniqueDates = attendanceDays
-      .filter(d => d.date >= repStartDate && d.date <= repEndDate && d.status !== 'cancelled')
+      .filter(d => d.date && d.date.trim() !== "" && d.date >= repStartDate && d.date <= repEndDate && d.status !== 'cancelled')
       .map(d => d.date)
       .sort();
   }
   // Fallback if no attendanceDays matches
   if (uniqueDates.length === 0) {
-    uniqueDates = Array.from(new Set(records.map(r => r.date))).sort();
+    uniqueDates = Array.from(new Set(
+      records
+        .filter(r => r.date && r.date.trim() !== "" && r.date >= repStartDate && r.date <= repEndDate)
+        .map(r => r.date)
+    )).sort();
   }
 
   // Filter students to show in the report
@@ -83,7 +87,7 @@ export default function A4PrintReport({
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const timeVal = hours * 100 + minutes;
-  const [cutoffHours, cutoffMinutes] = (settings?.lateTimeCutoff || "08:00").split(":").map(Number);
+  const [cutoffHours, cutoffMinutes] = (settings?.absentTimeCutoff || "08:30").split(":").map(Number);
   const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
   if (timeVal > cutoffTimeVal) {
     isPastCutoffToday = true;
