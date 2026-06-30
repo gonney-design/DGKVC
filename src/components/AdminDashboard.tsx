@@ -214,6 +214,15 @@ export default function AdminDashboard({
     }));
   };
 
+  const handleBulkToggleStatus = (status: "present" | "late" | "absent") => {
+    const classStudents = students.filter(s => s.classroomId === attClassroom);
+    const newMap = { ...localAttendanceMap };
+    classStudents.forEach(s => {
+      newMap[s.id] = status;
+    });
+    setLocalAttendanceMap(newMap);
+  };
+
   // Save manual checked attendance
   const handleSaveAttendance = async () => {
     try {
@@ -1160,6 +1169,30 @@ export default function AdminDashboard({
                     </div>
 
                     {/* Students list for selected class */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
+                      <span className="text-xs font-bold text-slate-500 font-heading mb-2 sm:mb-0">กำหนดสถานะทั้งหมดอย่างรวดเร็ว</span>
+                      <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+                        <button
+                          onClick={() => handleBulkToggleStatus("present")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:shadow-sm"
+                        >
+                          มาปกติทั้งหมด
+                        </button>
+                        <button
+                          onClick={() => handleBulkToggleStatus("late")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-amber-700 hover:bg-amber-50 hover:shadow-sm"
+                        >
+                          สายทั้งหมด
+                        </button>
+                        <button
+                          onClick={() => handleBulkToggleStatus("absent")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-rose-700 hover:bg-rose-50 hover:shadow-sm"
+                        >
+                          ขาดทั้งหมด
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
@@ -1226,6 +1259,18 @@ export default function AdminDashboard({
                         </tbody>
                       </table>
                     </div>
+
+                    {students.filter(s => s.classroomId === attClassroom).length > 0 && (
+                      <div className="flex justify-end pt-2">
+                        <button
+                          onClick={handleSaveAttendance}
+                          className="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white font-heading text-xs font-semibold py-3 px-8 rounded-xl shadow-md shadow-cyan-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                          บันทึกการเช็คชื่อเข้าแถว (อัปเดตข้อมูล)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
