@@ -125,6 +125,8 @@ export default function AdminDashboard({
   const [newStudentRoomId, setNewStudentRoomId] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importClassroomId, setImportClassroomId] = useState("auto");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [bulkTargetClassroom, setBulkTargetClassroom] = useState("");
 
   // --- Schedule sub tab states ---
   const [selectedMonth, setSelectedMonth] = useState("2026-06");
@@ -470,6 +472,55 @@ export default function AdminDashboard({
       loadAllData();
     } catch (err) {
       alert("ลบข้อมูลนักเรียนไม่สำเร็จ");
+    }
+  };
+
+  const handleBulkDeleteStudents = async () => {
+    if (selectedStudentIds.length === 0) return;
+    if (!confirm(`ต้องการลบนักเรียนที่เลือกจำนวน ${selectedStudentIds.length} คนใช่หรือไม่?`)) return;
+    try {
+      for (const id of selectedStudentIds) {
+        await deleteStudent(id);
+      }
+      setSelectedStudentIds([]);
+      loadAllData();
+      alert("ลบข้อมูลนักเรียนที่เลือกสำเร็จ");
+    } catch (err) {
+      alert("ลบข้อมูลนักเรียนบางคนไม่สำเร็จ");
+    }
+  };
+
+  const handleBulkMoveStudents = async () => {
+    if (selectedStudentIds.length === 0) return;
+    if (!bulkTargetClassroom) {
+      alert("กรุณาเลือกห้องเรียนที่ต้องการย้ายไป");
+      return;
+    }
+    if (!confirm(`ต้องการย้ายนักเรียน ${selectedStudentIds.length} คนไปที่ห้องใหม่ใช่หรือไม่?`)) return;
+    try {
+      const room = classrooms.find(c => c.id === bulkTargetClassroom);
+      if(!room) {
+        alert("ไม่พบข้อมูลห้องเรียนที่ระบุ " + bulkTargetClassroom);
+        return;
+      }
+
+      let count = 0;
+      for (const id of selectedStudentIds) {
+        const student = students.find(s => s.id === id);
+        if (student) {
+          await saveStudent({
+            ...student,
+            classroomId: bulkTargetClassroom
+          });
+          count++;
+        }
+      }
+      setSelectedStudentIds([]);
+      setBulkTargetClassroom("");
+      loadAllData();
+      alert(`ย้ายห้องเรียนสำเร็จ ${count} คน`);
+    } catch (err) {
+      alert("ย้ายห้องเรียนบางคนไม่สำเร็จ: " + (err as Error).message);
     }
   };
 
@@ -1369,11 +1420,71 @@ export default function AdminDashboard({
                         </div>
                       </div>
 
-                      {/* Students table */}
+                      {/* Students table & Bulk actions */}
+                      {selectedStudentIds.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center gap-2 bg-indigo-50 border border-indigo-100 p-3 rounded-2xl">
+                          <span className="text-xs font-semibold text-indigo-700">เลือก {selectedStudentIds.length} รายการ</span>
+                          <div className="flex items-center gap-2 w-full sm:w-auto ml-auto">
+                            <select
+                              value={bulkTargetClassroom}
+                              onChange={(e) => setBulkTargetClassroom(e.target.value)}
+                              className="bg-white border border-indigo-200 text-xs px-2 py-1.5 rounded-xl w-full sm:w-auto text-slate-700"
+                            >
+                              <option value="">-- เลือกห้องเพื่อย้าย --</option>
+                              {classrooms.map(c => (
+                                <option key={`bulk-${c.id}`} value={c.id}>{c.name}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={handleBulkMoveStudents}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
+                            >
+                              ย้ายห้อง
+                            </button>
+                            <button
+                              onClick={handleBulkDeleteStudents}
+                              className="bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
+                            >
+                              ลบทั้งหมด
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="border border-slate-200 rounded-2xl max-h-[250px] overflow-y-auto bg-white">
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-[10px] uppercase font-bold tracking-wider">
+                              <th className="py-2.5 px-3 w-8">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  onChange={(e) => {
+                                    const filtered = students.filter(s => {
+                                      const matchesSearch = s.name.includes(searchQuery) || s.id.includes(searchQuery);
+                                      const matchesRoom = selectedClassroom === "all" || s.classroomId === selectedClassroom;
+                                      return matchesSearch && matchesRoom;
+                                    });
+                                    if (e.target.checked) {
+                                      setSelectedStudentIds(filtered.map(s => s.id));
+                                    } else {
+                                      setSelectedStudentIds([]);
+                                    }
+                                  }}
+                                  checked={
+                                    students.filter(s => {
+                                      const matchesSearch = s.name.includes(searchQuery) || s.id.includes(searchQuery);
+                                      const matchesRoom = selectedClassroom === "all" || s.classroomId === selectedClassroom;
+                                      return matchesSearch && matchesRoom;
+                                    }).length > 0 &&
+                                    selectedStudentIds.length === students.filter(s => {
+                                      const matchesSearch = s.name.includes(searchQuery) || s.id.includes(searchQuery);
+                                      const matchesRoom = selectedClassroom === "all" || s.classroomId === selectedClassroom;
+                                      return matchesSearch && matchesRoom;
+                                    }).length
+                                  }
+                                />
+                              </th>
                               <th className="py-2.5 px-3 font-mono">ID</th>
                               <th className="py-2.5 px-3">ชื่อ</th>
                               <th className="py-2.5 px-3">ห้อง</th>
@@ -1389,8 +1500,23 @@ export default function AdminDashboard({
                               })
                               .map(s => {
                                 const room = classrooms.find(c => c.id === s.classroomId);
+                                const isSelected = selectedStudentIds.includes(s.id);
                                 return (
-                                  <tr key={s.id} className="hover:bg-slate-50/40">
+                                  <tr key={s.id} className={`hover:bg-slate-50/40 ${isSelected ? 'bg-indigo-50/30' : ''}`}>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        checked={isSelected}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedStudentIds(prev => [...prev, s.id]);
+                                          } else {
+                                            setSelectedStudentIds(prev => prev.filter(id => id !== s.id));
+                                          }
+                                        }}
+                                      />
+                                    </td>
                                     <td className="py-2 px-3 font-mono text-slate-500">{s.id}</td>
                                     <td className="py-2 px-3 font-semibold text-slate-800">{s.name}</td>
                                     <td className="py-2 px-3 text-slate-500">{room ? room.name.split(" ")[0] : "ไม่ระบุ"}</td>
