@@ -7,7 +7,8 @@ import {
   getAssets, 
   getBorrowRecords, 
   saveBorrowRecord,
-  saveStudent
+  saveStudent,
+  saveAsset
 } from "../lib/firebase";
 import { 
   User, 
@@ -246,14 +247,19 @@ export default function StudentDashboard({
         studentName: student.name,
         classroomId: student.classroomId,
         borrowDate: new Date().toISOString(),
-        status: "borrowed",
+        status: asset.type === 'consumable' ? "consumed" : "borrowed",
         qty: borrowQty
       };
 
       await saveBorrowRecord(newBorrow);
+      
+      // Update available quantity
+      const updatedAsset = { ...asset, availableQty: asset.availableQty - borrowQty };
+      await saveAsset(updatedAsset);
+      
       setShowBorrowForm(null);
       setBorrowQty(1);
-      alert(`ยืม ${asset.name} จำนวน ${borrowQty} รายการ สำเร็จ!`);
+      alert(asset.type === 'consumable' ? `เบิก ${asset.name} จำนวน ${borrowQty} รายการ สำเร็จ!` : `ยืม ${asset.name} จำนวน ${borrowQty} รายการ สำเร็จ!`);
       fetchData();
     } catch (err) {
       console.error("Borrow failed:", err);
@@ -292,8 +298,19 @@ export default function StudentDashboard({
       {/* Top Welcome Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mb-6 gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center font-heading font-bold text-xl">
-            {student.name.charAt(0)}
+          <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl flex items-center justify-center overflow-hidden shadow-sm p-1">
+            <img 
+              src="https://i.postimg.cc/KvtbhDHb/Logo-DG-color-01.png" 
+              alt="Logo" 
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<div class="w-full h-full bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center font-heading font-bold text-xl">' + student.name.charAt(0) + '</div>';
+                }
+              }}
+            />
           </div>
           <div>
             <h2 className="font-heading font-bold text-lg text-slate-900 leading-tight">สวัสดี, {student.name}</h2>
@@ -753,11 +770,20 @@ export default function StudentDashboard({
                         <div key={item.id} className="border border-slate-100 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-200 hover:shadow-sm transition-all bg-slate-50/50">
                           <div>
                             <div className="flex justify-between items-start gap-2">
-                              <h5 className="font-bold text-slate-900 text-sm">{item.name}</h5>
+                              <h5 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                {item.name}
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                                  item.type === 'consumable' 
+                                    ? 'bg-orange-50 text-orange-600 border-orange-100'
+                                    : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                }`}>
+                                  {item.type === 'consumable' ? 'ใช้แล้วหมดไป' : 'คงทน'}
+                                </span>
+                              </h5>
                               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
                                 item.availableQty > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
                               }`}>
-                                {item.availableQty > 0 ? `พร้อมยืม: ${item.availableQty}` : "ของหมด"}
+                                {item.availableQty > 0 ? (item.type === 'consumable' ? `พร้อมเบิก: ${item.availableQty}` : `พร้อมยืม: ${item.availableQty}`) : "ของหมด"}
                               </span>
                             </div>
                             <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description || "ไม่มีคำอธิบายอุปกรณ์"}</p>
@@ -801,7 +827,7 @@ export default function StudentDashboard({
                                 }`}
                               >
                                 <PlusCircle className="w-3.5 h-3.5" />
-                                ทำเรื่องขอยืม
+                                {item.type === 'consumable' ? 'ทำเรื่องเบิก' : 'ทำเรื่องขอยืม'}
                               </button>
                             )}
                           </div>

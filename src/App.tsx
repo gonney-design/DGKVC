@@ -154,16 +154,31 @@ export default function App() {
                 className="w-full max-w-md relative"
               >
                 {/* Branding Heading */}
-                <div className="text-center mb-8 space-y-2">
+                <div className="text-center mb-8 space-y-3 flex flex-col items-center">
+                  <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center p-2 mb-2 shadow-sm border border-indigo-100/50">
+                    <img 
+                      src="https://i.postimg.cc/KvtbhDHb/Logo-DG-color-01.png" 
+                      alt="Digital Graphics Logo" 
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        // Fallback icon if logo.png is not found
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+                        }
+                      }}
+                    />
+                  </div>
                   <div className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl px-4 py-1.5 text-[11px] font-bold tracking-wider uppercase shadow-md mb-2 font-mono">
                     <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                     Digital Graphics
                   </div>
                   <h1 className="font-heading font-extrabold text-2xl text-slate-900 leading-tight">
-                    ระบบเช็คชื่อกิจกรรมหน้าเสาธง
+                    สาขาวิชาดิจิทัลกราฟิก
                   </h1>
                   <p className="text-xs text-slate-500 font-medium font-sans">
-                    สาขาวิชาดิจิทัลกราฟิก • วิทยาลัยอาชีวศึกษาขอนแก่น
+                    วิทยาลัยอาชีวศึกษาขอนแก่น
                   </p>
                 </div>
 

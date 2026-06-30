@@ -37,6 +37,7 @@ export interface Asset {
   description?: string;
   totalQty: number;
   availableQty: number;
+  type: 'consumable' | 'durable';
 }
 
 export interface BorrowRecord {
@@ -47,7 +48,7 @@ export interface BorrowRecord {
   classroomId: string;
   borrowDate: string; // ISO string
   returnDate?: string; // ISO string if returned
-  status: 'borrowed' | 'returned';
+  status: 'borrowed' | 'returned' | 'consumed';
   qty: number;
 }
 

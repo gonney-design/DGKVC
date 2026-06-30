@@ -41,7 +41,8 @@ import {
   TrendingUp,
   UserCheck,
   Edit,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Download
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
@@ -150,6 +151,7 @@ export default function AdminDashboard({
   const [newAssetId, setNewAssetId] = useState("");
   const [newAssetQty, setNewAssetQty] = useState(1);
   const [newAssetDesc, setNewAssetDesc] = useState("");
+  const [newAssetType, setNewAssetType] = useState<"consumable" | "durable">("durable");
 
   const loadAllData = async () => {
     try {
@@ -300,6 +302,28 @@ export default function AdminDashboard({
       console.error("Barcode check-in failed:", err);
       setScanMessage({ type: "error", text: "เกิดข้อผิดพลาดในการบันทึกข้อมูลสแกน" });
     }
+  };
+
+  // Excel Template Download
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "รหัสนักเรียน": "69000000001",
+        "ชื่อ-นามสกุล": "ทดสอบ ทดสอบ",
+        "ห้องเรียน": "ม.1/1"
+      },
+      {
+        "รหัสนักเรียน": "69000000002",
+        "ชื่อ-นามสกุล": "นักเรียน ตัวอย่าง",
+        "ห้องเรียน": "ม.1/1"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+    
+    XLSX.writeFile(workbook, "student_template.xlsx");
   };
 
   // Excel Upload Import
@@ -453,13 +477,15 @@ export default function AdminDashboard({
         name: newAssetName.trim(),
         description: newAssetDesc.trim(),
         totalQty: newAssetQty,
-        availableQty: newAssetQty
+        availableQty: newAssetQty,
+        type: newAssetType
       };
       await saveAsset(item);
       setNewAssetId("");
       setNewAssetName("");
       setNewAssetQty(1);
       setNewAssetDesc("");
+      setNewAssetType("durable");
       alert("บันทึกวัสดุอุปกรณ์สำเร็จ!");
       loadAllData();
     } catch (err) {
@@ -487,6 +513,13 @@ export default function AdminDashboard({
         status: "returned"
       };
       await saveBorrowRecord(updatedLog);
+      
+      const assetObj = assets.find(a => a.id === log.assetId);
+      if (assetObj) {
+        const updatedAsset = { ...assetObj, availableQty: assetObj.availableQty + log.qty };
+        await saveAsset(updatedAsset);
+      }
+
       alert("ยืนยันการรับคืนอุปกรณ์เรียบร้อยแล้ว คลังอุปกรณ์ได้รับการปรับปรุงพัสดุเรียบร้อย");
       loadAllData();
     } catch (err) {
@@ -642,6 +675,26 @@ export default function AdminDashboard({
     return d.toLocaleDateString("sv-SE");
   }).reverse();
 
+  // Calculate Asset stats for overview
+  let durableBorrowed = 0;
+  let consumableConsumed = 0;
+  
+  borrowLogs.forEach(log => {
+    const assetObj = assets.find(a => a.id === log.assetId);
+    if (assetObj) {
+      if (assetObj.type === 'durable' && log.status === 'borrowed') {
+        durableBorrowed += log.qty;
+      } else if (assetObj.type === 'consumable' && log.status === 'consumed') {
+        consumableConsumed += log.qty;
+      }
+    }
+  });
+
+  const assetChartData = [
+    { name: 'วัสดุคงทน (กำลังยืม)', qty: durableBorrowed },
+    { name: 'วัสดุสิ้นเปลือง (เบิกใช้)', qty: consumableConsumed }
+  ];
+
   const chartData = daysInPast7.map(dateStr => {
     const dayRecs = records.filter(r => r.date === dateStr);
     const pres = dayRecs.filter(r => r.status === "present").length;
@@ -663,8 +716,19 @@ export default function AdminDashboard({
         {/* Brand Logo and Title */}
         <div className="p-5 border-b border-slate-800/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/20 font-heading">
-              DG
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/20 overflow-hidden p-0.5">
+              <img 
+                src="https://i.postimg.cc/KvtbhDHb/Logo-DG-color-01.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<div class="w-full h-full bg-indigo-600 rounded-lg flex items-center justify-center font-heading font-bold text-xl">DG</div>';
+                  }
+                }}
+              />
             </div>
             <div>
               <h1 className="font-heading font-bold text-white text-sm leading-tight">DG-kvcdata</h1>
@@ -893,6 +957,55 @@ export default function AdminDashboard({
                       ไปหน้าเช็คชื่อเข้าแถว
                       <ChevronRight className="w-4 h-4" />
                     </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-heading font-bold text-slate-800 text-sm">การใช้งานพัสดุและวัสดุสาขา</h4>
+                    </div>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={assetChartData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
+                          <Tooltip />
+                          <Bar dataKey="qty" fill="#6366f1" radius={[4, 4, 0, 0]} name="จำนวน (ชิ้น)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 space-y-4">
+                    <h4 className="font-heading font-bold text-slate-800 text-sm mb-3">รายการเบิกยืม-ใช้งานล่าสุด</h4>
+                    <div className="space-y-3 overflow-y-auto max-h-[200px] pr-2">
+                      {borrowLogs.slice(0, 5).map(log => {
+                        const assetObj = assets.find(a => a.id === log.assetId);
+                        const isConsumable = assetObj?.type === 'consumable';
+                        return (
+                          <div key={log.id} className="bg-white p-3 rounded-2xl border border-slate-100 flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{assetObj?.name || log.assetId}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">{log.studentName} • {log.qty} ชิ้น</p>
+                            </div>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                              log.status === "borrowed" 
+                                ? "bg-amber-50 text-amber-700 border-amber-200" 
+                                : log.status === "consumed"
+                                ? "bg-orange-50 text-orange-600 border-orange-100"
+                                : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {log.status === "borrowed" ? "กำลังยืม" : log.status === "consumed" ? "เบิกใช้งาน" : "คืนแล้ว"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {borrowLogs.length === 0 && (
+                        <p className="text-center text-xs text-slate-400 py-4">ยังไม่มีประวัติการเบิก-ยืม</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1126,17 +1239,26 @@ export default function AdminDashboard({
                     <p className="text-xs text-slate-500 mt-1">อัปเดตแก้ไขรายชื่อรายบุคคล หรือทำการนำเข้ายกห้องผ่านไฟล์แผนงาน Excel</p>
                   </div>
                   
-                  {/* Excel import upload button */}
-                  <label className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-heading text-xs font-semibold px-4 py-2.5 rounded-xl shadow transition-colors cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    นำเข้าไฟล์รายชื่อจาก Excel
-                    <input
-                      type="file"
-                      accept=".xlsx, .xls"
-                      onChange={handleExcelImport}
-                      className="hidden"
-                    />
-                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button 
+                      onClick={handleDownloadTemplate}
+                      className="flex items-center justify-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-heading text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      ดาวน์โหลดไฟล์ต้นแบบ
+                    </button>
+                    {/* Excel import upload button */}
+                    <label className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-heading text-xs font-semibold px-4 py-2.5 rounded-xl shadow transition-colors cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      นำเข้าไฟล์รายชื่อจาก Excel
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls"
+                        onChange={handleExcelImport}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {importStatus && (
@@ -1452,11 +1574,19 @@ export default function AdminDashboard({
                       />
                       <input
                         type="text"
-                        placeholder="ชื่อรายการอุปกรณ์"
+                        placeholder="ชื่อรายการพัสดุ/อุปกรณ์"
                         value={newAssetName}
                         onChange={(e) => setNewAssetName(e.target.value)}
                         className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2"
                       />
+                      <select
+                        value={newAssetType}
+                        onChange={(e) => setNewAssetType(e.target.value as "consumable" | "durable")}
+                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 font-medium"
+                      >
+                        <option value="durable">วัสดุคงทน (ต้องคืน)</option>
+                        <option value="consumable">วัสดุใช้แล้วหมดไป (ไม่ต้องคืน)</option>
+                      </select>
                       <input
                         type="number"
                         min={1}
@@ -1484,7 +1614,16 @@ export default function AdminDashboard({
                       {assets.map((item) => (
                         <div key={item.id} className="p-3 flex justify-between items-center text-xs">
                           <div>
-                            <p className="font-semibold text-slate-800">{item.name}</p>
+                            <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                              {item.name}
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                                item.type === 'consumable' 
+                                  ? 'bg-orange-50 text-orange-600 border-orange-100'
+                                  : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                              }`}>
+                                {item.type === 'consumable' ? 'ใช้แล้วหมดไป' : 'คงทน'}
+                              </span>
+                            </p>
                             <p className="text-[10px] text-slate-400 font-mono">คงเหลือ: {item.availableQty}/{item.totalQty}</p>
                           </div>
                           <button
@@ -1550,9 +1689,11 @@ export default function AdminDashboard({
                                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
                                       log.status === "borrowed" 
                                         ? "bg-amber-50 text-amber-700 border-amber-200" 
+                                        : log.status === "consumed"
+                                        ? "bg-orange-50 text-orange-600 border-orange-100"
                                         : "bg-slate-100 text-slate-500"
                                     }`}>
-                                      {log.status === "borrowed" ? "กำลังยืม" : "คืนแล้ว"}
+                                      {log.status === "borrowed" ? "กำลังยืม" : log.status === "consumed" ? "เบิกใช้งาน" : "คืนแล้ว"}
                                     </span>
                                   </td>
                                   <td className="py-3 px-3 text-center">
