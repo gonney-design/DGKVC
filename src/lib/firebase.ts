@@ -403,10 +403,10 @@ async function seedInitialDataIfNeeded() {
       }
 
       const defaultAssets: Asset[] = [
-        { id: "AST001", name: "Wacom Intuos Pro M", description: "เมาส์ปากกาสำหรับงานวาดกราฟิก ขนาด M", totalQty: 15, availableQty: 14 },
-        { id: "AST002", name: "iPad Pro 11\" (M2)", description: "ไอแพดพร้อม Apple Pencil สำหรับออกแบบนอกสถานที่", totalQty: 8, availableQty: 8 },
-        { id: "AST003", name: "Canon EOS R6 Mark II", description: "กล้อง Mirrorless สำหรับงานถ่ายภาพและวิดีโอสาขา", totalQty: 3, availableQty: 2 },
-        { id: "AST004", name: "Sennheiser Wireless Mic", description: "ไมโครโฟนไร้สายสำหรับการสัมภาษณ์และทำคอนเทนต์", totalQty: 5, availableQty: 5 }
+        { id: "AST001", name: "Wacom Intuos Pro M", description: "เมาส์ปากกาสำหรับงานวาดกราฟิก ขนาด M", totalQty: 15, availableQty: 14, type: "durable" },
+        { id: "AST002", name: "iPad Pro 11\" (M2)", description: "ไอแพดพร้อม Apple Pencil สำหรับออกแบบนอกสถานที่", totalQty: 8, availableQty: 8, type: "durable" },
+        { id: "AST003", name: "Canon EOS R6 Mark II", description: "กล้อง Mirrorless สำหรับงานถ่ายภาพและวิดีโอสาขา", totalQty: 3, availableQty: 2, type: "durable" },
+        { id: "AST004", name: "Sennheiser Wireless Mic", description: "ไมโครโฟนไร้สายสำหรับการสัมภาษณ์และทำคอนเทนต์", totalQty: 5, availableQty: 5, type: "durable" }
       ];
 
       for (const a of defaultAssets) {
