@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Sarabun", "Kanit", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Kanit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+}
+
+/* Custom styles for high-fidelity scanning laser and print styles */
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  50% { transform: translateY(100%); }
+  100% { transform: translateY(-100%); }
+}
+
+.animate-scan {
+  animation: scan-line 3s infinite linear;
+}
+
+/* Print CSS optimized for A4 */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-container {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 20mm;
+    page-break-after: always;
+  }
+}

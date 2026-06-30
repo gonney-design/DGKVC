@@ -1,0 +1,246 @@
+{
+  "entities": {
+    "Setting": {
+      "title": "Setting",
+      "description": "Global configuration including location coordinates and geofence radius.",
+      "type": "object",
+      "properties": {
+        "collegeLat": {
+          "type": "number",
+          "description": "Latitude coordinate of Khon Kaen Vocational College."
+        },
+        "collegeLng": {
+          "type": "number",
+          "description": "Longitude coordinate of Khon Kaen Vocational College."
+        },
+        "checkInRadius": {
+          "type": "number",
+          "description": "The allowed checkout radius in meters from the college coordinates."
+        },
+        "adminPassword": {
+          "type": "string",
+          "description": "PIN or password used to grant admin features in this prototype."
+        }
+      },
+      "required": ["collegeLat", "collegeLng", "checkInRadius", "adminPassword"]
+    },
+    "Classroom": {
+      "title": "Classroom",
+      "description": "Represents a classroom/section of students.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the classroom (e.g. DG1_2569)."
+        },
+        "name": {
+          "type": "string",
+          "description": "The readable name of the classroom (e.g. สคด.1/1)."
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Information about a registered student.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Student identification number (e.g., 66302040001)."
+        },
+        "name": {
+          "type": "string",
+          "description": "The student's full name."
+        },
+        "classroomId": {
+          "type": "string",
+          "description": "The classroom this student belongs to."
+        },
+        "barcode": {
+          "type": "string",
+          "description": "Barcode number/string representing the student ID."
+        },
+        "faceImageUrl": {
+          "type": "string",
+          "description": "A Base64 or URL string containing the registered facial sample of the student."
+        },
+        "faceRegistered": {
+          "type": "boolean",
+          "description": "Whether the student has registered their face."
+        }
+      },
+      "required": ["id", "name", "classroomId", "faceRegistered"]
+    },
+    "AttendanceDay": {
+      "title": "AttendanceDay",
+      "description": "A scheduled day of attendance.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "Date of the attendance event (YYYY-MM-DD)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "cancelled", "event"],
+          "description": "State of this day. Active means normal attendance. Cancelled means skipped. Event means activities."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Custom notes describing holiday, activity, or skip reason."
+        }
+      },
+      "required": ["date", "status"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "A log of student presence on a specific day.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique key (e.g. studentId_date)."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Student ID reference."
+        },
+        "classroomId": {
+          "type": "string",
+          "description": "Classroom ID reference of the student at that time."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of check-in (YYYY-MM-DD)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "ISO string timestamp of the check-in."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["present", "late", "absent"],
+          "description": "Attendance status: present (before 08:00), late (after 08:00), absent."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["manual", "scan", "self"],
+          "description": "Check-in channel."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude at check-in (if self-checked)."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude at check-in (if self-checked)."
+        }
+      },
+      "required": ["id", "studentId", "classroomId", "date", "timestamp", "status", "method"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "An inventory item in the branch (for the requested borrow/return capabilities).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Asset identification or serial number."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the asset (e.g. Wacom Tablet, Drawing Pen)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short description of the item."
+        },
+        "totalQty": {
+          "type": "number",
+          "description": "Total count of item available."
+        },
+        "availableQty": {
+          "type": "number",
+          "description": "Current available quantity to borrow."
+        }
+      },
+      "required": ["id", "name", "totalQty", "availableQty"]
+    },
+    "BorrowRecord": {
+      "title": "BorrowRecord",
+      "description": "A borrowing log of a branch asset.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Borrow record unique key."
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to the asset."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Student ID reference of borrower."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Name of student borrower at that time."
+        },
+        "classroomId": {
+          "type": "string",
+          "description": "Classroom reference of borrower."
+        },
+        "borrowDate": {
+          "type": "string",
+          "description": "ISO date string when item was borrowed."
+        },
+        "returnDate": {
+          "type": "string",
+          "description": "ISO date string when item was returned."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["borrowed", "returned"],
+          "description": "State of this borrowing record."
+        },
+        "qty": {
+          "type": "number",
+          "description": "Quantity borrowed."
+        }
+      },
+      "required": ["id", "assetId", "studentId", "studentName", "classroomId", "borrowDate", "status", "qty"]
+    }
+  },
+  "firestore": {
+    "settings": {
+      "schema": "Setting",
+      "description": "Stores general global application config. Document ID can be 'global'."
+    },
+    "classrooms": {
+      "schema": "Classroom",
+      "description": "Active classrooms list."
+    },
+    "students": {
+      "schema": "Student",
+      "description": "Registered students lookup by ID."
+    },
+    "attendanceDays": {
+      "schema": "AttendanceDay",
+      "description": "Calendar of attendance check days."
+    },
+    "attendanceRecords": {
+      "schema": "AttendanceRecord",
+      "description": "Records of daily attendance."
+    },
+    "assets": {
+      "schema": "Asset",
+      "description": "Inventory list of branch assets."
+    },
+    "borrowRecords": {
+      "schema": "BorrowRecord",
+      "description": "Active and finished borrowing records."
+    }
+  }
+}

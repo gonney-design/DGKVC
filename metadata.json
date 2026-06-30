@@ -1,0 +1,11 @@
+{
+  "name": "DG KVC Attendance",
+  "description": "ระบบเช็คชื่อการเข้าแถว และจัดการวัสดุอุปกรณ์ของสาขาวิชาดิจิทัลกราฟิก วิทยาลัยอาชีวศึกษาขอนแก่น",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
