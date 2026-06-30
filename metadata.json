@@ -1,5 +1,5 @@
 {
-  "name": "DG KVC Attendance",
+  "name": "DG KVC APP",
   "description": "ระบบเช็คชื่อการเข้าแถว และจัดการวัสดุอุปกรณ์ของสาขาวิชาดิจิทัลกราฟิก วิทยาลัยอาชีวศึกษาขอนแก่น",
   "requestFramePermissions": [
     "camera",
