@@ -135,11 +135,9 @@ export default function AdminDashboard({
   const [editingDate, setEditingDate] = useState<string | null>(null);
 
   // --- Report and Export states ---
-  const [repType, setRepType] = useState<"daily" | "weekly" | "monthly">("daily");
   const [repClassroom, setRepClassroom] = useState("all");
-  const [repDate, setRepDate] = useState(new Date().toLocaleDateString("sv-SE"));
-  const [repMonth, setRepMonth] = useState("2026-06");
-  const [repWeek, setRepWeek] = useState("2026-W27");
+  const [repStartDate, setRepStartDate] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [repEndDate, setRepEndDate] = useState(new Date().toLocaleDateString("sv-SE"));
   const [printableRecords, setPrintableRecords] = useState<AttendanceRecord[]>([]);
   const [showA4Modal, setShowA4Modal] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
@@ -715,28 +713,13 @@ export default function AdminDashboard({
     let filtered = [...records];
     let subtitleLabel = "";
 
-    if (repType === "daily") {
-      filtered = filtered.filter(r => r.date === repDate);
-      subtitleLabel = `ประจำวันที่ ${repDate}`;
-    } else if (repType === "weekly") {
-      // Simple week lookup
-      // repWeek format: '2026-W27'
-      const [yearStr, weekStr] = repWeek.split("-W");
-      const targetWeek = parseInt(weekStr);
-      
-      // Filter by records in that estimated week
-      filtered = filtered.filter(r => {
-        const recordDate = new Date(r.date);
-        // Get week number
-        const oneJan = new Date(recordDate.getFullYear(), 0, 1);
-        const numberOfDays = Math.floor((recordDate.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
-        const recordWeek = Math.ceil((recordDate.getDay() + 1 + numberOfDays) / 7);
-        return recordWeek === targetWeek && recordDate.getFullYear() === parseInt(yearStr);
-      });
-      subtitleLabel = `สัปดาห์ที่ ${targetWeek} ปี พ.ศ. ${parseInt(yearStr) + 543}`;
-    } else if (repType === "monthly") {
-      filtered = filtered.filter(r => r.date.startsWith(repMonth));
-      subtitleLabel = `ประจำเดือน ${repMonth}`;
+    // Filter by Date Range
+    filtered = filtered.filter(r => r.date >= repStartDate && r.date <= repEndDate);
+    
+    if (repStartDate === repEndDate) {
+      subtitleLabel = `ประจำวันที่ ${repStartDate}`;
+    } else {
+      subtitleLabel = `ตั้งแต่วันที่ ${repStartDate} ถึง ${repEndDate}`;
     }
 
     // Filter by classroom
@@ -745,7 +728,7 @@ export default function AdminDashboard({
     }
 
     setPrintableRecords(filtered);
-    setReportTitle(repType === "daily" ? "รายงานการเข้าแถวรายวัน" : repType === "weekly" ? "รายงานการเข้าแถวรายสัปดาห์" : "รายงานการเข้าแถวรายเดือน");
+    setReportTitle("รายงานสรุปการเข้าแถวทำกิจกรรมหน้าเสาธง");
     setReportSubtitle(subtitleLabel);
     setShowA4Modal(true);
   };
@@ -1941,19 +1924,6 @@ export default function AdminDashboard({
                 {/* Filters Row */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-5 rounded-3xl border border-slate-100">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ประเภทรายงาน</label>
-                    <select
-                      value={repType}
-                      onChange={(e) => setRepType(e.target.value as any)}
-                      className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white"
-                    >
-                      <option value="daily">รายงานรายวัน (Daily)</option>
-                      <option value="weekly">รายงานรายสัปดาห์ (Weekly)</option>
-                      <option value="monthly">รายงานรายเดือน (Monthly)</option>
-                    </select>
-                  </div>
-
-                  <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">คัดกรองห้องเรียน</label>
                     <select
                       value={repClassroom}
@@ -1967,33 +1937,24 @@ export default function AdminDashboard({
                     </select>
                   </div>
 
-                  {/* Period Input */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ช่วงเวลาที่เลือก</label>
-                    {repType === "daily" && (
-                      <input
-                        type="date"
-                        value={repDate}
-                        onChange={(e) => setRepDate(e.target.value)}
-                        className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono"
-                      />
-                    )}
-                    {repType === "weekly" && (
-                      <input
-                        type="week"
-                        value={repWeek}
-                        onChange={(e) => setRepWeek(e.target.value)}
-                        className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono"
-                      />
-                    )}
-                    {repType === "monthly" && (
-                      <input
-                        type="month"
-                        value={repMonth}
-                        onChange={(e) => setRepMonth(e.target.value)}
-                        className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white font-mono"
-                      />
-                    )}
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">วันที่เริ่มต้น</label>
+                    <input
+                      type="date"
+                      value={repStartDate}
+                      onChange={(e) => setRepStartDate(e.target.value)}
+                      className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">วันที่สิ้นสุด</label>
+                    <input
+                      type="date"
+                      value={repEndDate}
+                      onChange={(e) => setRepEndDate(e.target.value)}
+                      className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white font-mono"
+                    />
                   </div>
 
                   <div className="flex items-end">
@@ -2002,7 +1963,7 @@ export default function AdminDashboard({
                       className="w-full bg-slate-900 hover:bg-slate-800 text-white font-heading text-xs font-semibold py-2.5 px-4 rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Printer className="w-4 h-4" />
-                      เปิดหน้าพรีวิวพร้อมพิมพ์ A4
+                      สร้างรายงานสรุป
                     </button>
                   </div>
                 </div>
@@ -2198,9 +2159,13 @@ export default function AdminDashboard({
           title={reportTitle}
           subtitle={reportSubtitle}
           classroomName={repClassroom === "all" ? "ทุกห้องเรียน" : classrooms.find(c => c.id === repClassroom)?.name}
+          classroomId={repClassroom}
           records={printableRecords}
           students={students}
           classrooms={classrooms}
+          attendanceDays={attendanceDays}
+          repStartDate={repStartDate}
+          repEndDate={repEndDate}
           onClose={() => setShowA4Modal(false)}
         />
       )}

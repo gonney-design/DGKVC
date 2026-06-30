@@ -26,6 +26,10 @@
 
 /* Print CSS optimized for A4 */
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 5mm;
+  }
   body {
     background: white !important;
     color: black !important;
@@ -36,11 +40,12 @@
   .print-only {
     display: block !important;
   }
-  .print-container {
-    width: 210mm;
-    height: 297mm;
+  .print-landscape {
+    width: 100%;
+    max-width: 297mm;
+    min-height: 100vh;
     margin: 0;
-    padding: 20mm;
-    page-break-after: always;
+    padding: 0;
+    box-sizing: border-box;
   }
 }

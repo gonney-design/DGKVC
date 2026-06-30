@@ -1,13 +1,20 @@
-import { Classroom, Student, AttendanceRecord } from "../types";
+import { Classroom, Student, AttendanceRecord, AttendanceDay } from "../types";
 import { Printer, X, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { useReactToPrint } from "react-to-print";
+import { useRef } from "react";
 
 interface A4PrintReportProps {
   title: string;
   subtitle: string;
   classroomName?: string;
+  classroomId?: string;
   records: AttendanceRecord[];
   students: Student[];
   classrooms: Classroom[];
+  attendanceDays: AttendanceDay[];
+  repStartDate: string;
+  repEndDate: string;
   onClose: () => void;
 }
 
@@ -15,9 +22,13 @@ export default function A4PrintReport({
   title,
   subtitle,
   classroomName = "ทั้งหมด",
+  classroomId = "all",
   records,
   students,
   classrooms,
+  attendanceDays,
+  repStartDate,
+  repEndDate,
   onClose
 }: A4PrintReportProps) {
   
@@ -45,21 +56,95 @@ export default function A4PrintReport({
   const absent = records.filter(r => r.status === "absent").length;
   const presentRate = total > 0 ? Math.round(((present + late) / total) * 100) : 100;
 
-  const handlePrint = () => {
-    window.print();
+  let uniqueDates: string[] = [];
+  if (attendanceDays && attendanceDays.length > 0) {
+    uniqueDates = attendanceDays
+      .filter(d => d.date >= repStartDate && d.date <= repEndDate && d.status !== 'cancelled')
+      .map(d => d.date)
+      .sort();
+  }
+  // Fallback if no attendanceDays matches
+  if (uniqueDates.length === 0) {
+    uniqueDates = Array.from(new Set(records.map(r => r.date))).sort();
+  }
+
+  // Filter students to show in the report
+  let displayStudents = students;
+  if (classroomId !== "all") {
+    displayStudents = displayStudents.filter(s => s.classroomId === classroomId);
+  }
+
+  // Calculate summary per student
+  const studentStats = displayStudents.map(student => {
+    const studentRecords = records.filter(r => r.studentId === student.id && uniqueDates.includes(r.date));
+    const sPresent = studentRecords.filter(r => r.status === "present").length;
+    const sLate = studentRecords.filter(r => r.status === "late").length;
+    const sAbsent = studentRecords.filter(r => r.status === "absent").length;
+    return {
+      student,
+      present: sPresent,
+      late: sLate,
+      absent: sAbsent,
+      total: sPresent + sLate + sAbsent
+    };
+  });
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef,
+    documentTitle: `Attendance_Report_${classroomName}`,
+    onAfterPrint: () => console.log('Printed successfully'),
+  });
+
+  const handleExportExcel = () => {
+    const headers = ["เลขที่", "รหัสนักเรียน", "ชื่อ - นามสกุล", ...uniqueDates, "มา", "สาย", "ขาด", "รวม"];
+    const rows = studentStats.map((stat, idx) => {
+      const rowData: any[] = [
+        idx + 1,
+        stat.student.id,
+        stat.student.name,
+      ];
+      
+      uniqueDates.forEach(date => {
+        const rec = records.find(r => r.studentId === stat.student.id && r.date === date);
+        let mark = "";
+        if (rec) {
+          if (rec.status === "present") mark = "/";
+          else if (rec.status === "late") mark = "ส";
+          else if (rec.status === "absent") mark = "ข";
+        }
+        rowData.push(mark);
+      });
+      
+      rowData.push(stat.present, stat.late, stat.absent, stat.total);
+      return rowData;
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "AttendanceReport");
+    XLSX.writeFile(workbook, `Attendance_Report_${classroomName}.xlsx`);
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-start justify-center z-50 p-4 font-sans overflow-y-auto print:p-0 print:bg-white print:block">
       
       {/* Controls Container (Hidden on Print) */}
-      <div className="absolute top-4 right-4 flex gap-2 no-print">
+      <div className="fixed top-4 right-4 flex gap-2 no-print z-[60] bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20">
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-heading text-sm px-4 py-2.5 rounded-xl shadow-lg transition-colors cursor-pointer"
+        >
+          <Download className="w-4 h-4" />
+          ส่งออก Excel
+        </button>
         <button
           onClick={handlePrint}
-          className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-heading text-sm px-4 py-2.5 rounded-xl shadow-lg transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-heading text-sm px-4 py-2.5 rounded-xl shadow-lg transition-colors cursor-pointer"
         >
           <Printer className="w-4 h-4" />
-          พิมพ์รายงาน (A4)
+          ส่งออก PDF (พิมพ์)
         </button>
         <button
           onClick={onClose}
@@ -70,120 +155,82 @@ export default function A4PrintReport({
         </button>
       </div>
 
-      {/* The Printable Page (Fits exactly on A4) */}
-      <div className="bg-white text-slate-900 rounded-2xl shadow-2xl p-8 max-w-[210mm] w-full min-h-[297mm] my-8 overflow-x-auto print:shadow-none print:my-0 print:p-0 font-sans print:rounded-none">
+      {/* The Printable Page (Fits exactly on A4 Landscape) */}
+      <div ref={contentRef} id="print-content" className="bg-white text-slate-900 rounded-2xl shadow-2xl p-4 md:p-8 max-w-full md:max-w-[297mm] w-full min-h-[210mm] mt-20 mb-8 overflow-x-auto print:shadow-none print:m-0 print:p-0 font-sans print:rounded-none print-landscape">
         
         {/* Report Header */}
         <div className="flex flex-col items-center text-center pb-6 border-b border-slate-300">
           
-          {/* Mock College Seal */}
-          <div className="w-16 h-16 bg-gradient-to-tr from-cyan-600 to-indigo-600 rounded-full flex items-center justify-center text-white mb-3 shadow-md">
-            <span className="font-heading font-bold text-xl tracking-tight">KVC</span>
+          {/* Branch Logo */}
+          <div className="w-20 h-20 rounded-full mb-3 shadow-sm border-2 border-slate-100 bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-white print:border-slate-300" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+            <span className="font-heading font-bold text-3xl">DG</span>
           </div>
           
-          <h1 className="font-heading font-bold text-lg md:text-xl text-slate-900 leading-tight">
-            รายงานการเข้าแถวทำกิจกรรมหน้าเสาธง
+          <h1 className="font-heading font-bold text-lg md:text-xl text-slate-900 leading-tight max-w-[90%] mx-auto">
+            รายงานการเข้าแถวสาขาวิชาดิจิทัลกราฟิก ชั้น {classroomName} {subtitle.includes('ถึง') ? `ระหว่างวันที่ ${subtitle.replace('ตั้งแต่วันที่ ', '')}` : subtitle}
           </h1>
-          <h2 className="font-heading font-semibold text-sm md:text-base text-slate-700 mt-1">
-            สาขาวิชาดิจิทัลกราฟิก วิทยาลัยอาชีวศึกษาขอนแก่น
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 font-mono">DG-KVC Data & Attendance Management System</p>
+          <p className="text-xs text-slate-500 mt-2 font-mono">DG-KVC Data & Attendance Management System</p>
           
-          <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 bg-slate-100 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700">
+          <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 bg-slate-100 px-4 py-2 rounded-xl text-[10px] md:text-xs font-semibold text-slate-700">
             <span>ประเภท: {title}</span>
-            <span>ช่วงเวลา/ข้อมูล: {subtitle}</span>
-            <span>ห้องเรียน: {classroomName}</span>
-          </div>
-        </div>
-
-        {/* Attendance Statistics Summary Grid */}
-        <div className="grid grid-cols-4 gap-4 my-6 text-center">
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">เช็คชื่อทั้งหมด</p>
-            <p className="text-xl font-bold text-slate-800 mt-0.5">{total} <span className="text-xs font-normal text-slate-500">คน-ครั้ง</span></p>
-          </div>
-          <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl">
-            <p className="text-[10px] uppercase tracking-wider text-emerald-600 font-bold">มาทันเวลา</p>
-            <p className="text-xl font-bold text-emerald-700 mt-0.5">{present} <span className="text-xs font-normal text-emerald-500">ครั้ง</span></p>
-          </div>
-          <div className="bg-amber-50 border border-amber-100 p-3 rounded-2xl">
-            <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">มาสาย</p>
-            <p className="text-xl font-bold text-amber-700 mt-0.5">{late} <span className="text-xs font-normal text-slate-500">ครั้ง</span></p>
-          </div>
-          <div className="bg-rose-50 border border-rose-100 p-3 rounded-2xl">
-            <p className="text-[10px] uppercase tracking-wider text-rose-600 font-bold">ขาดแถว</p>
-            <p className="text-xl font-bold text-rose-700 mt-0.5">{absent} <span className="text-xs font-normal text-slate-500">ครั้ง</span></p>
+            <span>ข้อมูลสรุป: {subtitle}</span>
           </div>
         </div>
 
         {/* Dynamic Data Table */}
-        <div className="overflow-x-auto border border-slate-300 rounded-xl">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-100 text-slate-700 border-b border-slate-300 font-heading font-bold text-[11px]">
-                <th className="py-2.5 px-3 border-r border-slate-300 text-center w-10">ลำดับ</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 w-24">รหัสนักเรียน</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 w-44">ชื่อ - นามสกุล</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 w-28">ห้องเรียน</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 text-center w-24">วันที่เช็ค</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 text-center w-16">เวลาเช็ค</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 text-center w-20">ช่องทาง</th>
-                <th className="py-2.5 px-3 border-r border-slate-300 text-center w-16">สถานะ</th>
-                <th className="py-2.5 px-3">พิกัด / หมายเหตุ (กรณีเช็คชื่อตนเอง)</th>
+        <div className="overflow-x-auto print:overflow-hidden border border-slate-300 rounded-xl print:border-none print:rounded-none w-full mt-6">
+          <table className="w-full text-left text-xs border-collapse print:text-[8px]" style={{ tableLayout: 'auto' }}>
+            <thead className="print:table-header-group">
+              <tr className="bg-slate-100 text-slate-700 border-b border-slate-300 font-heading font-bold text-[11px] print:text-[8px]">
+                <th className="py-1.5 px-1 border-r border-slate-300 text-center w-8 print:w-4">เลขที่</th>
+                <th className="py-1.5 px-1 border-r border-slate-300 w-16 print:w-10">รหัส</th>
+                <th className="py-1.5 px-1 border-r border-slate-300 min-w-[120px] print:min-w-[60px] max-w-[150px] truncate">ชื่อ - นามสกุล</th>
+                {uniqueDates.map(d => (
+                  <th key={d} className="py-1 px-0 border-r border-slate-300 text-center align-bottom border-b-0 print:p-0">
+                    <div className="whitespace-nowrap overflow-visible text-[7px] print:text-[6px] mx-auto pb-0.5 transform -rotate-90 origin-bottom-left" style={{ width: '6px', height: '24px' }}>
+                      {d.split("-").slice(1).join("/")}
+                    </div>
+                  </th>
+                ))}
+                <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">มา</th>
+                <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">สาย</th>
+                <th className="py-1.5 px-0.5 border-r border-slate-300 text-center w-6 print:w-4">ขาด</th>
+                <th className="py-1.5 px-0.5 text-center w-6 print:w-4">รวม</th>
               </tr>
             </thead>
             <tbody>
-              {records.length === 0 ? (
+              {studentStats.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400 font-medium">
-                    ไม่พบข้อมูลการเข้าแถวในช่วงเวลาที่เลือก
+                  <td colSpan={8 + uniqueDates.length} className="py-8 text-center text-slate-400 font-medium">
+                    ไม่พบข้อมูลนักเรียน
                   </td>
                 </tr>
               ) : (
-                records.map((r, idx) => {
-                  const student = studentMap.get(r.studentId);
-                  const room = student ? classroomMap.get(student.classroomId) : null;
-                  const roomName = room ? room.name.split(" ")[0] : "ไม่ระบุ";
-                  const checkTime = new Date(r.timestamp).toLocaleTimeString("th-TH", {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  }) + " น.";
-
-                  // Status badge style for printing
-                  let statusText = "มาปกติ";
-                  let statusColor = "text-emerald-700 font-bold";
-                  if (r.status === "late") {
-                    statusText = "สาย";
-                    statusColor = "text-amber-700 font-bold";
-                  } else if (r.status === "absent") {
-                    statusText = "ขาด";
-                    statusColor = "text-rose-700 font-bold";
-                  }
-
-                  // Method translate
-                  let methodText = "แมนนวล";
-                  if (r.method === "scan") methodText = "สแกนโค้ด";
-                  else if (r.method === "self") methodText = "เช็คเอง";
-
+                studentStats.map((stat, idx) => {
                   return (
-                    <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50/50">
-                      <td className="py-2 px-3 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 font-mono">{r.studentId}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 font-semibold">{student?.name || "ไม่ทราบชื่อ"}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 text-slate-600">{roomName}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 text-center text-slate-600 font-mono">{r.date}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 text-center font-mono">{checkTime}</td>
-                      <td className="py-2 px-3 border-r border-slate-200 text-center text-slate-500">{methodText}</td>
-                      <td className={`py-2 px-3 border-r border-slate-200 text-center ${statusColor}`}>{statusText}</td>
-                      <td className="py-2 px-3 text-[10px] text-slate-500 font-mono">
-                        {r.method === "self" && r.latitude && r.longitude ? (
-                          <span className="text-cyan-700 bg-cyan-50/50 px-1.5 py-0.5 rounded border border-cyan-100">
-                            GPS: {r.latitude.toFixed(6)}, {r.longitude.toFixed(6)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
+                    <tr key={stat.student.id} className="border-b border-slate-200 hover:bg-slate-50/50">
+                      <td className="py-1 px-1 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
+                      <td className="py-1 px-1 border-r border-slate-200 font-mono text-[9px] print:text-[8px]">{stat.student.id}</td>
+                      <td className="py-1 px-1 border-r border-slate-200 font-semibold text-[10px] print:text-[8px] truncate max-w-[120px] print:max-w-[60px]">{stat.student.name}</td>
+                      {uniqueDates.map(date => {
+                        const rec = records.find(r => r.studentId === stat.student.id && r.date === date);
+                        let mark = "";
+                        let color = "text-slate-200 print:text-slate-300";
+                        if (rec) {
+                          if (rec.status === "present") { mark = "/"; color = "text-emerald-700 print:text-black"; }
+                          else if (rec.status === "late") { mark = "ส"; color = "text-amber-700 print:text-black"; }
+                          else if (rec.status === "absent") { mark = "ข"; color = "text-rose-700 print:text-black"; }
+                        }
+                        return (
+                          <td key={date} className={`py-1 px-0 border-r border-slate-200 text-center font-bold text-[8px] print:text-[7px] ${color}`}>
+                            {mark}
+                          </td>
+                        );
+                      })}
+                      <td className="py-1 px-0.5 border-r border-slate-200 text-center text-emerald-700 print:text-black font-bold">{stat.present}</td>
+                      <td className="py-1 px-0.5 border-r border-slate-200 text-center text-amber-700 print:text-black font-bold">{stat.late}</td>
+                      <td className="py-1 px-0.5 border-r border-slate-200 text-center text-rose-700 print:text-black font-bold">{stat.absent}</td>
+                      <td className="py-1 px-0.5 text-center text-slate-800 print:text-black font-bold">{stat.total}</td>
                     </tr>
                   );
                 })
@@ -193,18 +240,12 @@ export default function A4PrintReport({
         </div>
 
         {/* Verification & Signatures Panel */}
-        <div className="mt-12 grid grid-cols-2 gap-8 text-center text-xs">
+        <div className="mt-12 flex justify-end text-center text-xs">
           <div>
-            <p className="text-slate-500 font-medium">ผู้รายงาน / ครูประจำชั้น</p>
-            <div className="h-16 border-b border-slate-300 w-48 mx-auto mt-4"></div>
-            <p className="mt-2 text-slate-700 font-semibold">(........................................................)</p>
-            <p className="text-[10px] text-slate-400 mt-1">ตำแหน่ง ครูประจำวิชาดิจิทัลกราฟิก</p>
-          </div>
-          <div>
-            <p className="text-slate-500 font-medium">ผู้ตรวจสอบกิจกรรมกลาง</p>
-            <div className="h-16 border-b border-slate-300 w-48 mx-auto mt-4"></div>
-            <p className="mt-2 text-slate-700 font-semibold">(........................................................)</p>
-            <p className="text-[10px] text-slate-400 mt-1">หัวหน้างานกิจกรรม / ตัวแทนคณะกรรมการ</p>
+            <p className="text-slate-500 font-medium text-sm">ผู้รายงาน / ครูที่ปรึกษา</p>
+            <div className="h-16 w-72 mx-auto mt-4 flex items-end justify-center">
+              <p className="text-slate-700 font-semibold text-sm">(......................................................................................)</p>
+            </div>
           </div>
         </div>
 
