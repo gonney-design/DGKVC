@@ -79,6 +79,7 @@ export default function StudentDashboard({
   const [assets, setAssets] = useState<Asset[]>([]);
   const [myBorrows, setMyBorrows] = useState<BorrowRecord[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [attendanceDays, setAttendanceDays] = useState<any[]>([]);
   
   // Geolocation states
   const [geoLoading, setGeoLoading] = useState(false);
@@ -136,6 +137,7 @@ export default function StudentDashboard({
       setMyBorrows(myActiveBorrows);
 
       const allDays = await getAttendanceDays();
+      setAttendanceDays(allDays);
       const todayStr = new Date().toLocaleDateString("sv-SE");
       const upcoming = allDays
         .filter(d => d.date >= todayStr && (d.status === 'event' || d.status === 'cancelled' || d.notes))
@@ -208,8 +210,16 @@ export default function StudentDashboard({
         onStudentUpdate(updatedStudent);
       }
 
-      // 2. Add Attendance Record
+      // 2. Check if attendance day exists
       const todayStr = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD local
+      const dayExists = attendanceDays.some(d => d.date === todayStr && d.status !== 'cancelled');
+      if (!dayExists) {
+        setSelfCheckInSuccess("ไม่มีการเข้าแถวในวันนี้");
+        setShowScanner(false);
+        return;
+      }
+
+      // 3. Add Attendance Record
       const currentTime = new Date();
       const hours = currentTime.getHours();
       const minutes = currentTime.getMinutes();

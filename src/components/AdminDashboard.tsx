@@ -281,7 +281,7 @@ export default function AdminDashboard({
       
       const dayExists = attendanceDays.some(d => d.date === todayStr && d.status !== 'cancelled');
       if (!dayExists) {
-        setScanMessage({ type: "error", text: `วันนี้ (${todayStr}) ไม่ได้ถูกตั้งค่าให้มีกิจกรรมเข้าแถว` });
+        setScanMessage({ type: "error", text: `ไม่มีการเข้าแถวในวันนี้` });
         setScanInputId("");
         return;
       }
