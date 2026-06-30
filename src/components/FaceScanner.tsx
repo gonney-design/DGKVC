@@ -160,13 +160,18 @@ export default function FaceScanner({
         {/* Camera Stage */}
         <div className="relative aspect-square w-full max-w-[320px] mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 flex items-center justify-center">
           {hasCamera === true ? (
-            <video 
-              ref={videoRef}
-              autoPlay 
-              playsInline 
-              muted 
-              className="w-full h-full object-cover transform -scale-x-100"
-            />
+            <>
+              <video 
+                ref={videoRef}
+                autoPlay 
+                playsInline 
+                muted 
+                className={`w-full h-full object-cover transform -scale-x-100 ${capturedImage ? 'hidden' : 'block'}`}
+              />
+              {capturedImage && (
+                <img src={capturedImage} alt="Captured Face" className="w-full h-full object-cover" />
+              )}
+            </>
           ) : hasCamera === false ? (
             // Animated simulation grid
             <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center relative p-6 text-center">

@@ -29,7 +29,7 @@ import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-goo
 
 const GOOGLE_MAPS_API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   '';
 const hasValidMapsKey = Boolean(GOOGLE_MAPS_API_KEY) && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY' && GOOGLE_MAPS_API_KEY !== '';
 
@@ -62,13 +62,15 @@ interface StudentDashboardProps {
   classrooms: Classroom[];
   settings: Setting;
   onLogout: () => void;
+  onStudentUpdate: (student: Student) => void;
 }
 
 export default function StudentDashboard({
   student,
   classrooms,
   settings,
-  onLogout
+  onLogout,
+  onStudentUpdate
 }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState<"card" | "checkin" | "history" | "assets">("card");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -192,8 +194,7 @@ export default function StudentDashboard({
           faceImageUrl: faceImgBase64
         };
         await saveStudent(updatedStudent);
-        student.faceRegistered = true;
-        student.faceImageUrl = faceImgBase64;
+        onStudentUpdate(updatedStudent);
       }
 
       // 2. Add Attendance Record
@@ -497,9 +498,21 @@ export default function StudentDashboard({
 
                     {/* Facial Scanner Lock Indicator */}
                     <div className="border border-slate-100 p-6 rounded-3xl flex flex-col justify-between items-center text-center space-y-4">
-                      <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center">
-                        <Camera className="w-8 h-8" />
-                      </div>
+                      {student.faceRegistered && student.faceImageUrl ? (
+                        <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-indigo-100 shadow-inner flex items-center justify-center">
+                          {student.faceImageUrl.startsWith("bg-") ? (
+                            <div className={`w-full h-full ${student.faceImageUrl} flex items-center justify-center text-xl font-bold text-white`}>
+                              {student.name.charAt(0)}
+                            </div>
+                          ) : (
+                            <img src={student.faceImageUrl} alt="Registered Face" className="w-full h-full object-cover" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center">
+                          <Camera className="w-8 h-8" />
+                        </div>
+                      )}
                       
                       <div className="space-y-1">
                         <h4 className="font-heading font-bold text-slate-900 text-sm">การสแกนใบหน้า (Face Scan)</h4>

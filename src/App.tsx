@@ -304,6 +304,7 @@ export default function App() {
                   classrooms={classrooms}
                   settings={settings!}
                   onLogout={() => { setCurrentUser(null); setStudentIdInput(""); }}
+                  onStudentUpdate={(updatedStudent: Student) => setCurrentUser(updatedStudent)}
                 />
               </motion.div>
             )}
