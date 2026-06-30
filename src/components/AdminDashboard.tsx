@@ -110,7 +110,7 @@ export default function AdminDashboard({
   // --- Attendance Check Subtab ---
   const [attSubtab, setAttSubtab] = useState<"manual" | "scan">("manual");
   const [attClassroom, setAttClassroom] = useState("");
-  const [attDate, setAttDate] = useState(new Date().toLocaleDateString("sv-SE"));
+  const [attDate, setAttDate] = useState("");
   const [localAttendanceMap, setLocalAttendanceMap] = useState<{ [studentId: string]: "present" | "late" | "absent" }>({});
   
   // Scanning Sim state
@@ -223,6 +223,11 @@ export default function AdminDashboard({
 
   // Save manual checked attendance
   const handleSaveAttendance = async () => {
+    if (!attDate) {
+      alert("กรุณาเลือกวันที่ต้องการเช็คแถว (ต้องกำหนดวันในแถบ 'ตารางกิจกรรม' ก่อน)");
+      return;
+    }
+    
     try {
       // Register or update day in calendar
       const dayExists = attendanceDays.some(d => d.date === attDate);
@@ -274,6 +279,14 @@ export default function AdminDashboard({
 
     try {
       const todayStr = new Date().toLocaleDateString("sv-SE");
+      
+      const dayExists = attendanceDays.some(d => d.date === todayStr && d.status !== 'cancelled');
+      if (!dayExists) {
+        setScanMessage({ type: "error", text: `วันนี้ (${todayStr}) ไม่ได้ถูกตั้งค่าให้มีกิจกรรมเข้าแถว` });
+        setScanInputId("");
+        return;
+      }
+      
       const currentTime = new Date();
       const hours = currentTime.getHours();
       const minutes = currentTime.getMinutes();
@@ -1133,12 +1146,20 @@ export default function AdminDashboard({
 
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">วันที่ต้องการเช็คแถว</label>
-                        <input
-                          type="date"
+                        <select
                           value={attDate}
                           onChange={(e) => setAttDate(e.target.value)}
                           className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2.5 bg-white font-mono"
-                        />
+                        >
+                          <option value="">-- เลือกวันที่ --</option>
+                          {attendanceDays
+                            .filter(d => d.status !== 'cancelled')
+                            .sort((a, b) => b.date.localeCompare(a.date))
+                            .map(d => (
+                              <option key={d.date} value={d.date}>{d.date}</option>
+                            ))
+                          }
+                        </select>
                       </div>
 
                       <div className="flex items-end">
