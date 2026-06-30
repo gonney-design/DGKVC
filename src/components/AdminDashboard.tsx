@@ -1631,59 +1631,77 @@ export default function AdminDashboard({
                       />
                     </div>
 
-                    <div className="border border-slate-200 rounded-2xl bg-white max-h-[300px] overflow-y-auto divide-y divide-slate-100">
-                      {attendanceDays.length === 0 ? (
-                        <p className="text-slate-400 text-xs py-12 text-center">ยังไม่มีข้อมูลวันเข้าแถวที่ถูกระบุในปฏิทิน</p>
-                      ) : (
-                        attendanceDays.map((day) => {
-                          let badgeText = "เข้าแถวปกติ";
-                          let badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-100";
-                          if (day.status === "cancelled") {
-                            badgeText = "งดเข้าแถว";
-                            badgeStyle = "bg-rose-50 text-rose-700 border-rose-100";
-                          } else if (day.status === "event") {
-                            badgeText = "มีกิจกรรมอื่น";
-                            badgeStyle = "bg-amber-50 text-amber-700 border-amber-100";
-                          }
-
-                          return (
-                            <div key={day.date} className="p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                              <div>
-                                <p className="font-semibold text-slate-800 font-mono text-sm">{day.date}</p>
-                                <p className="text-[11px] text-slate-400 mt-0.5">หมายเหตุ: {day.notes || "ไม่มีข้อมูล"}</p>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${badgeStyle}`}>{badgeText}</span>
+                    <div className="border border-slate-200 rounded-2xl bg-white p-4">
+                      {/* Calendar View */}
+                      <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                        {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((d, i) => (
+                          <div key={i} className="text-[10px] font-bold text-slate-400 uppercase">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-2">
+                        {(() => {
+                          const [yStr, mStr] = selectedMonth.split("-");
+                          if (!yStr || !mStr) return null;
+                          const year = parseInt(yStr);
+                          const month = parseInt(mStr) - 1;
+                          const daysInMonth = new Date(year, month + 1, 0).getDate();
+                          const firstDay = new Date(year, month, 1).getDay();
+                          const days = [];
+                          for (let i = 0; i < firstDay; i++) days.push(null);
+                          for (let i = 1; i <= daysInMonth; i++) days.push(i);
+                          
+                          return days.map((d, i) => {
+                            if (d === null) return <div key={i} className="h-16 md:h-20"></div>;
+                            
+                            const dateStr = `${yStr}-${mStr}-${String(d).padStart(2, '0')}`;
+                            const dayData = attendanceDays.find(x => x.date === dateStr);
+                            
+                            let bgClass = "bg-slate-50 border border-slate-100";
+                            let icon = null;
+                            if (dayData) {
+                              if (dayData.status === 'active') {
+                                bgClass = "bg-emerald-50 border border-emerald-200 text-emerald-800";
+                                icon = <Check className="w-3 h-3 text-emerald-600" />;
+                              } else if (dayData.status === 'cancelled') {
+                                bgClass = "bg-rose-50 border border-rose-200 text-rose-800";
+                                icon = <X className="w-3 h-3 text-rose-600" />;
+                              } else if (dayData.status === 'event') {
+                                bgClass = "bg-amber-50 border border-amber-200 text-amber-800";
+                                icon = <AlertTriangle className="w-3 h-3 text-amber-600" />;
+                              }
+                            }
+                            
+                            return (
+                              <div key={i} className={`h-16 md:h-20 rounded-xl p-1.5 flex flex-col relative group transition-colors hover:shadow-sm ${bgClass}`}>
+                                <div className="flex justify-between items-start">
+                                  <span className="text-xs font-bold font-mono">{d}</span>
+                                  {icon}
+                                </div>
+                                {dayData?.notes && (
+                                  <div className="text-[9px] leading-tight mt-1 truncate" title={dayData.notes}>
+                                    {dayData.notes}
+                                  </div>
+                                )}
                                 
-                                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                                  <button
-                                    onClick={() => handleSaveDayStatus(day.date, "active")}
-                                    className="text-[9px] font-bold px-2 py-1 hover:bg-white rounded transition-colors cursor-pointer"
-                                    title="เปลี่ยนเป็นวันเข้าแถวปกติ"
-                                  >
-                                    เข้าแถว
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveDayStatus(day.date, "cancelled")}
-                                    className="text-[9px] font-bold px-2 py-1 hover:bg-white text-rose-600 rounded transition-colors cursor-pointer"
-                                    title="เปลี่ยนเป็นวันงดกิจกรรม"
-                                  >
-                                    งดแถว
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveDayStatus(day.date, "event")}
-                                    className="text-[9px] font-bold px-2 py-1 hover:bg-white text-amber-600 rounded transition-colors cursor-pointer"
-                                    title="เปลี่ยนเป็นวันกิจกรรมอื่น"
-                                  >
-                                    กิจกรรม
-                                  </button>
+                                {/* Hover Actions */}
+                                <div className="absolute inset-x-0 bottom-1 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                                  <div className="flex bg-slate-900/90 p-0.5 rounded-lg shadow-md scale-90 gap-0.5">
+                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "active"); }} className="p-1 hover:bg-slate-800 rounded text-emerald-400" title="เข้าแถวปกติ">
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "cancelled"); }} className="p-1 hover:bg-slate-800 rounded text-rose-400" title="งดเข้าแถว">
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleSaveDayStatus(dateStr, "event"); }} className="p-1 hover:bg-slate-800 rounded text-amber-400" title="กิจกรรม">
+                                      <AlertTriangle className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })
-                      )}
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   </div>
 

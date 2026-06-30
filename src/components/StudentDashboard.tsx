@@ -8,7 +8,8 @@ import {
   getBorrowRecords, 
   saveBorrowRecord,
   saveStudent,
-  saveAsset
+  saveAsset,
+  getAttendanceDays
 } from "../lib/firebase";
 import { 
   User, 
@@ -77,6 +78,7 @@ export default function StudentDashboard({
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [myBorrows, setMyBorrows] = useState<BorrowRecord[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   
   // Geolocation states
   const [geoLoading, setGeoLoading] = useState(false);
@@ -132,6 +134,13 @@ export default function StudentDashboard({
       const allBorrows = await getBorrowRecords();
       const myActiveBorrows = allBorrows.filter(b => b.studentId === student.id);
       setMyBorrows(myActiveBorrows);
+
+      const allDays = await getAttendanceDays();
+      const todayStr = new Date().toLocaleDateString("sv-SE");
+      const upcoming = allDays
+        .filter(d => d.date >= todayStr && (d.status === 'event' || d.status === 'cancelled' || d.notes))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setUpcomingEvents(upcoming);
     } catch (error) {
       console.error("Error fetching student dashboard data:", error);
     } finally {
@@ -326,6 +335,27 @@ export default function StudentDashboard({
           ออกจากระบบ
         </button>
       </div>
+
+      {/* Upcoming Events Notification */}
+      {upcomingEvents.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {upcomingEvents.map((evt, idx) => (
+            <div key={idx} className={`border rounded-2xl p-4 flex items-start gap-3 shadow-sm ${evt.status === 'cancelled' ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div className={`mt-0.5 p-1.5 rounded-full ${evt.status === 'cancelled' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                {evt.status === 'cancelled' ? <AlertTriangle className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+              </div>
+              <div>
+                <h4 className={`text-sm font-bold ${evt.status === 'cancelled' ? 'text-rose-800' : 'text-amber-800'}`}>
+                  แจ้งเตือนกิจกรรม: {new Date(evt.date).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </h4>
+                <p className={`text-xs mt-1 font-medium ${evt.status === 'cancelled' ? 'text-rose-700' : 'text-amber-700'}`}>
+                  {evt.status === 'cancelled' ? 'งดเข้าแถว' : 'กิจกรรมพิเศษ'}{evt.notes ? ` - ${evt.notes}` : ''}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Primary Dashboard Navigation Tabs */}
       <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-6 overflow-x-auto">
