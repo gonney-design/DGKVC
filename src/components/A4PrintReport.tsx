@@ -219,8 +219,8 @@ export default function A4PrintReport({
                 <th className="py-1.5 px-1 border-r border-slate-300 w-16 print:w-10">รหัส</th>
                 <th className="py-1.5 px-1 border-r border-slate-300 min-w-[120px] print:min-w-[60px] max-w-[150px] truncate">ชื่อ - นามสกุล</th>
                 {uniqueDates.map(d => (
-                  <th key={d} className="py-1 px-0 border-r border-slate-300 text-center align-bottom border-b-0 print:p-0">
-                    <div className="whitespace-nowrap overflow-visible text-[7px] print:text-[6px] mx-auto pb-0.5 transform -rotate-90 origin-bottom-left" style={{ width: '6px', height: '24px' }}>
+                  <th key={d} className="py-1 px-1 border-r border-slate-300 text-center align-bottom border-b-0 print:p-0">
+                    <div className="mx-auto text-[8px] print:text-[6px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '40px' }}>
                       {d.split("-").slice(1).join("/")}
                     </div>
                   </th>
