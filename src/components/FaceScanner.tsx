@@ -200,12 +200,12 @@ export default function FaceScanner({
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (autoScanEnabled && modelsLoaded && hasCamera !== null && scanStep === "ready") {
-      // Allow 2 seconds for user to position their face
+      // Allow 1.5 seconds for user to position their face
       timer = setTimeout(() => {
         if (handleCaptureRef.current) {
           handleCaptureRef.current();
         }
-      }, 2000);
+      }, 1500);
     }
     return () => {
       if (timer) clearTimeout(timer);
@@ -345,10 +345,23 @@ export default function FaceScanner({
         {/* Hidden Canvas for video framing capture */}
         <canvas ref={canvasRef} className="hidden" />
 
+        {/* Instructions */}
+        <div className="mt-4 bg-slate-800/40 border border-slate-700/30 p-3.5 rounded-xl">
+          <p className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> คำแนะนำสำหรับการสแกน:
+          </p>
+          <ul className="text-[11px] text-slate-400 space-y-1.5 list-disc list-inside ml-1 font-sans">
+            <li>มองตรงไปที่กล้องและให้ใบหน้าอยู่ในกรอบ</li>
+            <li>อยู่ในที่ที่มีแสงสว่างเพียงพอ ไม่ย้อนแสง</li>
+            <li>ถอดแว่นตาดำหรือหมวกที่บดบังใบหน้า</li>
+            {!modelsLoaded && <li className="text-amber-400">การเปิดใช้งานครั้งแรกอาจใช้เวลาโหลด AI สักครู่</li>}
+          </ul>
+        </div>
+
         {/* Status Indicator */}
-        <div className="mt-4 flex items-start gap-2 bg-slate-800/40 border border-slate-700/30 p-3 rounded-xl">
-          <Sparkles className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-slate-300 leading-relaxed font-sans">{statusText}</p>
+        <div className="mt-3 flex items-start gap-2 bg-cyan-900/20 border border-cyan-800/30 p-3 rounded-xl">
+          <RefreshCw className={`w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0 ${scanStep !== 'ready' && scanStep !== 'error' ? 'animate-spin' : ''}`} />
+          <p className="text-xs text-cyan-100 leading-relaxed font-sans">{statusText}</p>
         </div>
 
         {/* Action button */}
