@@ -273,6 +273,16 @@ export async function saveAttendanceRecord(record: AttendanceRecord): Promise<vo
   }
 }
 
+export async function deleteAttendanceRecord(recordId: string): Promise<void> {
+  const path = `attendanceRecords/${recordId}`;
+  try {
+    const docRef = doc(db, "attendanceRecords", recordId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 // --- ASSETS ---
 export async function getAssets(): Promise<Asset[]> {
   const path = "assets";

@@ -12,6 +12,7 @@ import {
   deleteAttendanceDay,
   getAttendanceRecords,
   saveAttendanceRecord,
+  deleteAttendanceRecord,
   getAssets,
   saveAsset,
   deleteAsset,
@@ -112,7 +113,7 @@ export default function AdminDashboard({
   const [attSubtab, setAttSubtab] = useState<"manual" | "scan">("manual");
   const [attClassroom, setAttClassroom] = useState("");
   const [attDate, setAttDate] = useState("");
-  const [localAttendanceMap, setLocalAttendanceMap] = useState<{ [studentId: string]: "present" | "late" | "absent" }>({});
+  const [localAttendanceMap, setLocalAttendanceMap] = useState<{ [studentId: string]: "present" | "late" | "absent" | "not_recorded" }>({});
   
   // Scanning Sim state
   const [scanInputId, setScanInputId] = useState("");
@@ -195,25 +196,25 @@ export default function AdminDashboard({
     if (!attClassroom) return;
     // Find existing records for this class on this date
     const dayRecords = records.filter(r => r.classroomId === attClassroom && r.date === attDate);
-    const map: { [studentId: string]: "present" | "late" | "absent" } = {};
+    const map: { [studentId: string]: "present" | "late" | "absent" | "not_recorded" } = {};
     
-    // Fill with default "absent" or existing record status
+    // Fill with default "not_recorded" or existing record status
     students.filter(s => s.classroomId === attClassroom).forEach(s => {
       const match = dayRecords.find(r => r.studentId === s.id);
-      map[s.id] = match ? match.status : "absent";
+      map[s.id] = match ? match.status : "not_recorded";
     });
     setLocalAttendanceMap(map);
   }, [attClassroom, attDate, records, students]);
 
   // Handle Manual Attendance Change
-  const handleToggleStatus = (studentId: string, status: "present" | "late" | "absent") => {
+  const handleToggleStatus = (studentId: string, status: "present" | "late" | "absent" | "not_recorded") => {
     setLocalAttendanceMap(prev => ({
       ...prev,
       [studentId]: status
     }));
   };
 
-  const handleBulkToggleStatus = (status: "present" | "late" | "absent") => {
+  const handleBulkToggleStatus = (status: "present" | "late" | "absent" | "not_recorded") => {
     const classStudents = students.filter(s => s.classroomId === attClassroom);
     const newMap = { ...localAttendanceMap };
     classStudents.forEach(s => {
@@ -243,6 +244,10 @@ export default function AdminDashboard({
       // Save records
       const promises = Object.entries(localAttendanceMap).map(([studentId, status]) => {
         const recordId = `${studentId}_${attDate}`;
+        if (status === "not_recorded") {
+          return deleteAttendanceRecord(recordId);
+        }
+        
         const newRec: AttendanceRecord = {
           id: recordId,
           studentId: studentId,
@@ -1199,6 +1204,12 @@ export default function AdminDashboard({
                         >
                           ขาดทั้งหมด
                         </button>
+                        <button
+                          onClick={() => handleBulkToggleStatus("not_recorded")}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all text-slate-600 hover:text-slate-700 hover:bg-slate-200 hover:shadow-sm"
+                        >
+                          ยังไม่บันทึกทั้งหมด
+                        </button>
                       </div>
                     </div>
 
@@ -1209,7 +1220,7 @@ export default function AdminDashboard({
                             <th className="py-3 px-4 w-28 font-mono">รหัสนักเรียน</th>
                             <th className="py-3 px-4">ชื่อ - นามสกุล</th>
                             <th className="py-3 px-4 text-center">สแกนใบหน้าแล้ว</th>
-                            <th className="py-3 px-4 text-center w-[250px]">บันทึกสถานะการมา</th>
+                            <th className="py-3 px-4 text-center w-[300px]">บันทึกสถานะการมา</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1221,7 +1232,7 @@ export default function AdminDashboard({
                             </tr>
                           ) : (
                             students.filter(s => s.classroomId === attClassroom).map((s) => {
-                              const currentStatus = localAttendanceMap[s.id] || "absent";
+                              const currentStatus = localAttendanceMap[s.id] || "not_recorded";
                               return (
                                 <tr key={s.id} className="hover:bg-slate-50/50">
                                   <td className="py-3 px-4 font-mono font-medium text-slate-600">{s.id}</td>
@@ -1237,7 +1248,7 @@ export default function AdminDashboard({
                                     <div className="flex bg-slate-100 p-0.5 rounded-xl gap-0.5">
                                       <button
                                         onClick={() => handleToggleStatus(s.id, "present")}
-                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
+                                        className={`text-[10px] font-bold px-2 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
                                           currentStatus === "present" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-600"
                                         }`}
                                       >
@@ -1245,7 +1256,7 @@ export default function AdminDashboard({
                                       </button>
                                       <button
                                         onClick={() => handleToggleStatus(s.id, "late")}
-                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
+                                        className={`text-[10px] font-bold px-2 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
                                           currentStatus === "late" ? "bg-amber-500 text-white shadow-sm" : "text-slate-600"
                                         }`}
                                       >
@@ -1253,11 +1264,19 @@ export default function AdminDashboard({
                                       </button>
                                       <button
                                         onClick={() => handleToggleStatus(s.id, "absent")}
-                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
+                                        className={`text-[10px] font-bold px-2 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
                                           currentStatus === "absent" ? "bg-rose-500 text-white shadow-sm" : "text-slate-600"
                                         }`}
                                       >
                                         ขาด
+                                      </button>
+                                      <button
+                                        onClick={() => handleToggleStatus(s.id, "not_recorded")}
+                                        className={`text-[10px] font-bold px-2 py-1.5 rounded-lg flex-1 cursor-pointer transition-all ${
+                                          currentStatus === "not_recorded" ? "bg-slate-500 text-white shadow-sm" : "text-slate-600"
+                                        }`}
+                                      >
+                                        ไม่ระบุ
                                       </button>
                                     </div>
                                   </td>
