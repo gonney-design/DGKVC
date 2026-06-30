@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, RefreshCw, AlertCircle, Sparkles, CheckCircle } from "lucide-react";
+import * as faceapi from '@vladmandic/face-api';
 
 interface FaceScannerProps {
   studentId: string;
   studentName: string;
   faceRegistered: boolean;
-  onScanSuccess: (faceImageBase64: string) => void;
+  registeredDescriptor?: number[];
+  onScanSuccess: (faceImageBase64: string, faceDescriptor?: number[]) => void;
   onClose: () => void;
 }
 
@@ -13,18 +15,38 @@ export default function FaceScanner({
   studentId,
   studentName,
   faceRegistered,
+  registeredDescriptor,
   onScanSuccess,
   onClose
 }: FaceScannerProps) {
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [statusText, setStatusText] = useState<string>("");
+  const [statusText, setStatusText] = useState<string>("กำลังเตรียมพร้อม...");
   const [scanStep, setScanStep] = useState<"ready" | "scanning" | "registering" | "matching" | "success" | "error">("ready");
   const [progress, setProgress] = useState(0);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Load models
+  useEffect(() => {
+    async function loadModels() {
+      try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        setModelsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load face-api models", err);
+      }
+    }
+    loadModels();
+  }, []);
 
   // Start webcam or fallback
   useEffect(() => {
@@ -57,45 +79,20 @@ export default function FaceScanner({
     };
   }, []);
 
-  // Scanning animation handler
   useEffect(() => {
-    if (scanStep === "scanning") {
-      setStatusText("กำลังวิเคราะห์จุดสำคัญบนใบหน้า (Face Landmarking)...");
-      const interval = setInterval(() => {
-        setProgress(p => {
-          if (p >= 100) {
-            clearInterval(interval);
-            setScanStep(faceRegistered ? "matching" : "registering");
-            return 100;
-          }
-          return p + 10;
-        });
-      }, 200);
-      return () => clearInterval(interval);
-    } else if (scanStep === "registering") {
-      setStatusText("กำลังบันทึกภาพตัวอย่างใบหน้าเข้าสู่ฐานข้อมูล...");
-      const timer = setTimeout(() => {
-        setScanStep("success");
-        if (capturedImage) {
-          onScanSuccess(capturedImage);
-        }
-      }, 1500);
-      return () => clearTimeout(timer);
-    } else if (scanStep === "matching") {
-      setStatusText("กำลังตรวจสอบความสอดคล้องกับภาพใบหน้าเดิม...");
-      const timer = setTimeout(() => {
-        setScanStep("success");
-        if (capturedImage) {
-          onScanSuccess(capturedImage);
-        }
-      }, 1500);
-      return () => clearTimeout(timer);
+    if (hasCamera && videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
     }
-  }, [scanStep, faceRegistered, capturedImage, onScanSuccess]);
+  }, [hasCamera, stream]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
+    if (!modelsLoaded) {
+      setStatusText("กำลังโหลด AI Model กรุณารอสักครู่...");
+      return;
+    }
+
     setScanStep("scanning");
-    setProgress(0);
+    setProgress(30);
 
     if (hasCamera && videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -111,13 +108,85 @@ export default function FaceScanner({
         
         const dataUrl = canvas.toDataURL("image/jpeg");
         setCapturedImage(dataUrl);
+
+        try {
+          setStatusText("กำลังวิเคราะห์จุดสำคัญบนใบหน้า (Face Landmarking)...");
+          setProgress(60);
+
+          // Detect face using face-api
+          const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+          if (!detection) {
+            setScanStep("error");
+            setStatusText("ไม่พบใบหน้า กรุณาลองใหม่อีกครั้ง");
+            setTimeout(() => {
+              setScanStep("ready");
+              setCapturedImage(null);
+            }, 3000);
+            return;
+          }
+
+          setProgress(90);
+
+          const currentDescriptor = Array.from(detection.descriptor);
+
+          if (faceRegistered) {
+            setScanStep("matching");
+            setStatusText("กำลังตรวจสอบความสอดคล้องกับภาพใบหน้าเดิม...");
+            
+            // Compare faces
+            if (registeredDescriptor) {
+              const distance = faceapi.euclideanDistance(detection.descriptor, new Float32Array(registeredDescriptor));
+              const threshold = 0.5; // Accuracy threshold, lower means more strict (default is ~0.6)
+              
+              if (distance > threshold) {
+                setScanStep("error");
+                setStatusText(`ใบหน้าไม่ตรงกับที่ลงทะเบียนไว้ (Distance: ${distance.toFixed(2)})`);
+                setTimeout(() => {
+                  setScanStep("ready");
+                  setCapturedImage(null);
+                }, 3000);
+                return;
+              }
+            } else {
+               // Fallback if somehow registered but no descriptor in DB
+            }
+          } else {
+            setScanStep("registering");
+            setStatusText("กำลังบันทึกภาพตัวอย่างใบหน้าเข้าสู่ฐานข้อมูล...");
+          }
+
+          setProgress(100);
+          
+          setTimeout(() => {
+            setScanStep("success");
+            onScanSuccess(dataUrl, currentDescriptor);
+          }, 1000);
+
+        } catch (error) {
+          console.error("Face detection error:", error);
+          setScanStep("error");
+          setStatusText("เกิดข้อผิดพลาดในการประมวลผล");
+          setTimeout(() => {
+            setScanStep("ready");
+            setCapturedImage(null);
+          }, 3000);
+        }
       }
     } else {
       // Simulate snapshot in mock mode
-      // Let's generate a colored placeholder face avatar
-      const colors = ["bg-emerald-500", "bg-cyan-500", "bg-indigo-500", "bg-rose-500"];
-      const randColor = colors[Math.floor(Math.random() * colors.length)];
-      setCapturedImage(randColor);
+      setProgress(50);
+      setTimeout(() => {
+        const colors = ["bg-emerald-500", "bg-cyan-500", "bg-indigo-500", "bg-rose-500"];
+        const randColor = colors[Math.floor(Math.random() * colors.length)];
+        setCapturedImage(randColor);
+        setProgress(100);
+        
+        setTimeout(() => {
+          setScanStep("success");
+          onScanSuccess(randColor, []); // empty descriptor
+        }, 1000);
+      }, 1000);
     }
   };
 

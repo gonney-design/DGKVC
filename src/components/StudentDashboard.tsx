@@ -844,6 +844,7 @@ export default function StudentDashboard({
           studentId={student.id}
           studentName={student.name}
           faceRegistered={student.faceRegistered}
+          registeredDescriptor={student.faceDescriptor}
           onScanSuccess={handleFaceScanSuccess}
           onClose={() => setShowScanner(false)}
         />

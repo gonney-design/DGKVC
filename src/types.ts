@@ -9,6 +9,7 @@ export interface Student {
   classroomId: string;
   barcode: string;
   faceImageUrl?: string;
+  faceDescriptor?: number[]; // To store face descriptor array for matching
   faceRegistered: boolean;
 }
 
