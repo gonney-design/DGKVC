@@ -258,7 +258,7 @@ export default function StudentDashboard({
       };
 
       await saveAttendanceRecord(newRecord);
-      setSelfCheckInSuccess(status === "present" ? "ลงชื่อเข้าแถวสำเร็จ! (ทันเวลา)" : "ลงชื่อเข้าแถวสำเร็จ! (สาย)");
+      setSelfCheckInSuccess("ลงชื่อเข้าแถวสำเร็จ!");
       fetchData();
     } catch (err) {
       console.error("Self check-in save failed:", err);
@@ -356,16 +356,21 @@ export default function StudentDashboard({
   const statsPresent = displayRecords.filter(r => r.status === "present").length;
   const statsAbsent = displayRecords.filter(r => r.status === "absent").length;
 
-  // Compute Streak
-  const sortedDisplay = [...displayRecords]
-    .filter(r => r.status !== 'not_recorded')
+  // Compute Streak strictly using attendanceDays
+  const validDays = attendanceDays
+    .filter(d => d.date <= todayStr && d.status !== 'cancelled')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
   let streak = 0;
-  for (const r of sortedDisplay) {
-    if (r.status === 'present') {
+  for (const day of validDays) {
+    const recordForDay = displayRecords.find(r => r.date === day.date);
+    if (recordForDay && recordForDay.status === 'present') {
       streak++;
     } else {
+      // If there is no record for today and it's not past cutoff, do not break the streak.
+      if (day.date === todayStr && !isPastCutoffToday && !recordForDay) {
+        continue;
+      }
       break;
     }
   }
@@ -828,7 +833,7 @@ export default function StudentDashboard({
                         }) + " น.";
                         
                         let badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-100";
-                        let statusText = "มาทันเวลา";
+                        let statusText = "มาปกติ";
                         if (r.status === "absent") {
                           badgeStyle = "bg-rose-50 text-rose-700 border-rose-100";
                           statusText = "ขาดแถว";

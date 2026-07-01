@@ -322,11 +322,24 @@ export default function AdminDashboard({
       const minutes = currentTime.getMinutes();
       const timeVal = hours * 100 + minutes;
 
-      const [cutoffHours, cutoffMinutes] = (settings.lateTimeCutoff || "08:00").split(":").map(Number);
-      const cutoffTimeVal = cutoffHours * 100 + cutoffMinutes;
+      const [startHours, startMinutes] = (settings.checkInStartTime || "06:00").split(":").map(Number);
+      const startTimeVal = startHours * 100 + startMinutes;
+      const [absentHours, absentMinutes] = (settings.absentTimeCutoff || "08:30").split(":").map(Number);
+      const absentTimeVal = absentHours * 100 + absentMinutes;
 
-      // Late after configured time
-      const status: "present" | "absent" = timeVal <= cutoffTimeVal ? "present" : "absent";
+      if (timeVal < startTimeVal) {
+        setScanMessage({ type: "error", text: `ยังไม่ถึงเวลาเช็คชื่อ (เริ่ม ${settings.checkInStartTime || "06:00"} น.)` });
+        setScanInputId("");
+        return;
+      }
+
+      if (timeVal > absentTimeVal) {
+        setScanMessage({ type: "error", text: "หมดเวลาเช็คชื่อแล้ว" });
+        setScanInputId("");
+        return;
+      }
+
+      const status: "present" | "absent" = "present";
       const recordId = `${student.id}_${todayStr}`;
       
       const newRec: AttendanceRecord = {
@@ -348,12 +361,12 @@ export default function AdminDashboard({
           studentId: student.id,
           name: student.name,
           time: timeStr,
-          status: status === "present" ? "มาปกติ" : "สาย"
+          status: status === "present" ? "มาปกติ" : "ขาดแถว"
         },
         ...prev
       ]);
 
-      setScanMessage({ type: "success", text: `สแกนสำเร็จ! ${student.name} เช็คสถานะ: ${status === "present" ? "มาปกติ" : "สาย"}` });
+      setScanMessage({ type: "success", text: `สแกนสำเร็จ! ${student.name} เช็คสถานะ: ${status === "present" ? "มาปกติ" : "ขาดแถว"}` });
       setScanInputId("");
       loadAllData();
     } catch (err) {
@@ -998,7 +1011,7 @@ export default function AdminDashboard({
                 <div className="space-y-6">
                   <div className="border-b border-slate-100 pb-4">
                     <h3 className="font-heading font-bold text-lg text-slate-900">แผงสารสนเทศภาพรวมทั้งสาขา</h3>
-                    <p className="text-xs text-slate-500 mt-1">สรุปการเข้าเรียน การมาสาย และขาดกิจกรรมของนักเรียนสาขาดิจิทัลกราฟิก ณ ปัจจุบัน</p>
+                    <p className="text-xs text-slate-500 mt-1">สรุปการเข้าเรียน และขาดกิจกรรมของนักเรียนสาขาดิจิทัลกราฟิก ณ ปัจจุบัน</p>
                   </div>
 
                   {/* Dashboard Metrics */}
