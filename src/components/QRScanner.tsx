@@ -10,7 +10,7 @@ export default function QRScanner({ onScanSuccess, onScanFailure }: QRScannerPro
   const lastScan = useRef<{ text: string; time: number }>({ text: '', time: 0 });
 
   return (
-    <div className="w-full max-w-sm mx-auto overflow-hidden rounded-2xl bg-slate-900 border border-slate-800">
+    <div className="w-full h-full overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
       <Scanner 
         onScan={(result) => {
           if (result && result.length > 0) {

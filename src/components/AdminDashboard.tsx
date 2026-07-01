@@ -1064,7 +1064,7 @@ export default function AdminDashboard({
                           <Tooltip />
                           <Legend />
                           <Area type="monotone" dataKey="มา" stroke="#10b981" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} />
-                          <Area type="monotone" dataKey="ขาด" stroke="#f43f5e" fillOpacity={1} fillOpacity={0} strokeWidth={2} />
+                          <Area type="monotone" dataKey="ขาด" stroke="#f43f5e" fillOpacity={0} strokeWidth={2} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -1347,7 +1347,7 @@ export default function AdminDashboard({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                     
                     {/* Scanner camera frame */}
-                    <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-between items-center text-center relative overflow-hidden aspect-square max-w-[360px] mx-auto border-2 border-slate-800">
+                    <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-between items-center text-center relative overflow-hidden w-full h-[500px] border-2 border-slate-800">
                       
                       <div className="w-full relative z-10 flex-1 flex flex-col justify-center min-h-0">
                         <QRScanner
@@ -1357,34 +1357,34 @@ export default function AdminDashboard({
                           }}
                         />
                       </div>
-                      <div className="my-auto z-10 space-y-1 mb-2 mt-4">
+                      <div className="my-auto z-10 space-y-1 mb-4 mt-6">
                         <h4 className="font-heading font-bold text-sm text-slate-200">เครื่องสแกน QR Code / บาร์โค้ด</h4>
                         <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
                           ส่อง QR Code นักเรียนที่กล้อง หรือพิมพ์รหัส/ยิงบาร์โค้ดลงในช่องด้านล่าง
                         </p>
                       </div>
 
-                      <form onSubmit={handleBarcodeSubmit} className="w-full relative z-10 mt-2">
+                      <form onSubmit={handleBarcodeSubmit} className="w-full relative z-10 mt-2 shrink-0">
                         <input
                           type="text"
                           value={scanInputId}
                           onChange={(e) => setScanInputId(e.target.value)}
                           placeholder="พิมพ์รหัสนักเรียน หรือ ยิงบาร์โค้ด..."
-                          className="w-full text-center text-xs font-mono border border-slate-700 bg-slate-950 text-white rounded-xl py-2.5 px-4 outline-none focus:border-cyan-400 transition-colors"
+                          className="w-full text-center text-xs font-mono border border-slate-700 bg-slate-950 text-white rounded-xl py-3 px-4 outline-none focus:border-cyan-400 transition-colors"
                         />
                       </form>
                     </div>
 
                     {/* Scan session records logs */}
-                    <div className="flex flex-col justify-between space-y-4">
-                      <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl flex-1 space-y-3">
-                        <h4 className="font-heading font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <div className="flex flex-col h-[500px]">
+                      <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl flex flex-col h-full space-y-3">
+                        <h4 className="font-heading font-bold text-slate-900 text-sm flex items-center gap-2 shrink-0">
                           <CheckCircle className="text-emerald-500 w-5 h-5" />
                           รายการที่สแกนเข้าแถวในเซสชั่นนี้
                         </h4>
                         
                         {scanMessage && (
-                          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 border ${
+                          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 border shrink-0 ${
                             scanMessage.type === "success" 
                               ? "bg-emerald-50 border-emerald-100 text-emerald-700" 
                               : "bg-rose-50 border-rose-100 text-rose-700"
@@ -1394,7 +1394,7 @@ export default function AdminDashboard({
                           </div>
                         )}
 
-                        <div className="border border-slate-200 rounded-2xl h-[180px] overflow-y-auto divide-y divide-slate-100 bg-white">
+                        <div className="border border-slate-200 rounded-2xl flex-1 overflow-y-auto divide-y divide-slate-100 bg-white min-h-0">
                           {scannedSessionLogs.length === 0 ? (
                             <p className="text-slate-400 text-xs py-12 text-center">ยังไม่มีข้อมูลการยิงสแกนบาร์โค้ดหน้าแถว</p>
                           ) : (
