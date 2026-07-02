@@ -95,6 +95,7 @@ export default function StudentDashboard({
   // Borrow form state
   const [showBorrowForm, setShowBorrowForm] = useState<string | null>(null); // assetId
   const [borrowQty, setBorrowQty] = useState(1);
+  const [borrowNotes, setBorrowNotes] = useState("");
   const [borrowLoading, setBorrowLoading] = useState(false);
   
   // General local state loading
@@ -284,7 +285,8 @@ export default function StudentDashboard({
         classroomId: student.classroomId,
         borrowDate: new Date().toISOString(),
         status: asset.type === 'consumable' ? "consumed" : "borrowed",
-        qty: borrowQty
+        qty: borrowQty,
+        notes: borrowNotes
       };
 
       await saveBorrowRecord(newBorrow);
@@ -295,6 +297,7 @@ export default function StudentDashboard({
       
       setShowBorrowForm(null);
       setBorrowQty(1);
+      setBorrowNotes("");
       alert(asset.type === 'consumable' ? `เบิก ${asset.name} จำนวน ${borrowQty} รายการ สำเร็จ!` : `ยืม ${asset.name} จำนวน ${borrowQty} รายการ สำเร็จ!`);
       fetchData();
     } catch (err) {
@@ -311,10 +314,10 @@ export default function StudentDashboard({
       const updatedBorrow: BorrowRecord = {
         ...borrow,
         returnDate: new Date().toISOString(),
-        status: "returned"
+        status: "pending_return"
       };
       await saveBorrowRecord(updatedBorrow);
-      alert("คืนอุปกรณ์สำเร็จแล้ว เจ้าหน้าที่หรือครูประจำสาขาจะทำการรับอุปกรณ์คืนต่อหน้า");
+      alert("คืนอุปกรณ์สำเร็จ รอเจ้าหน้าที่ตรวจสอบและยืนยันการคืน");
       fetchData();
     } catch (err) {
       console.error("Return failed:", err);
@@ -819,14 +822,14 @@ export default function StudentDashboard({
                 </div>
 
                 {/* My Active Borrows Section */}
-                {myBorrows.filter(b => b.status === "borrowed").length > 0 && (
+                {myBorrows.filter(b => b.status === "borrowed" || b.status === "pending_return").length > 0 && (
                   <div className="border-2 border-dashed border-indigo-200 bg-indigo-50/10 p-5 rounded-3xl space-y-3">
                     <h4 className="font-heading font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5 text-indigo-700">
                       <Clock className="w-4 h-4" />
-                      อุปกรณ์ที่คุณกำลังยืมอยู่ในปัจจุบัน
+                      อุปกรณ์ที่คุณกำลังยืม / รอตรวจสอบการคืน
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {myBorrows.filter(b => b.status === "borrowed").map((b) => {
+                      {myBorrows.filter(b => b.status === "borrowed" || b.status === "pending_return").map((b) => {
                         const asset = assets.find(a => a.id === b.assetId);
                         const borrowTime = new Date(b.borrowDate).toLocaleDateString("th-TH", {
                           day: "numeric",
@@ -835,16 +838,25 @@ export default function StudentDashboard({
                         });
                         return (
                           <div key={b.id} className="bg-white border border-indigo-100 rounded-2xl p-4 flex justify-between items-center shadow-sm">
-                            <div>
-                              <p className="font-bold text-slate-900 text-sm">{asset?.name || b.assetId}</p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">จำนวน: {b.qty} รายการ • ยืมเมื่อ: {borrowTime}</p>
+                            <div className="flex-1 min-w-0 pr-3">
+                              <p className="font-bold text-slate-900 text-sm truncate">{asset?.name || b.assetId}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">จำนวน: {b.qty} รายการ • ยืม: {borrowTime}</p>
+                              {b.notes && (
+                                <p className="text-[10px] text-slate-600 mt-1 italic truncate">"{b.notes}"</p>
+                              )}
                             </div>
-                            <button
-                              onClick={() => handleReturnRequest(b)}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-heading text-[10px] font-semibold px-3 py-1.5 rounded-xl cursor-pointer"
-                            >
-                              กดขอคืนของ
-                            </button>
+                            {b.status === "pending_return" ? (
+                              <span className="bg-amber-100 text-amber-700 font-heading text-[10px] font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap">
+                                รอครูยืนยันคืน
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleReturnRequest(b)}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-heading text-[10px] font-semibold px-3 py-1.5 rounded-xl cursor-pointer whitespace-nowrap transition-colors"
+                              >
+                                กดขอคืนของ
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -853,81 +865,107 @@ export default function StudentDashboard({
                 )}
 
                 {/* List of Available Assets */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h4 className="font-heading font-bold text-slate-900 text-sm">รายการวัสดุอุปกรณ์ของสาขา</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {assets.length === 0 ? (
-                      <p className="text-slate-400 text-xs py-4 text-center col-span-2">ไม่มีรายการวัสดุอุปกรณ์ในระบบ</p>
-                    ) : (
-                      assets.map((item) => (
-                        <div key={item.id} className="border border-slate-100 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-200 hover:shadow-sm transition-all bg-slate-50/50">
-                          <div>
-                            <div className="flex justify-between items-start gap-2">
-                              <h5 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                                {item.name}
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
-                                  item.type === 'consumable' 
-                                    ? 'bg-orange-50 text-orange-600 border-orange-100'
-                                    : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                }`}>
-                                  {item.type === 'consumable' ? 'ใช้แล้วหมดไป' : 'คงทน'}
-                                </span>
-                              </h5>
-                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                                item.availableQty > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                              }`}>
-                                {item.availableQty > 0 ? (item.type === 'consumable' ? `พร้อมเบิก: ${item.availableQty}` : `พร้อมยืม: ${item.availableQty}`) : "ของหมด"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.description || "ไม่มีคำอธิบายอุปกรณ์"}</p>
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100/60 flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400 font-mono">ID: {item.id} • ทั้งหมด: {item.totalQty}</span>
-                            
-                            {showBorrowForm === item.id ? (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={item.availableQty}
-                                  value={borrowQty}
-                                  onChange={(e) => setBorrowQty(Math.min(item.availableQty, Math.max(1, parseInt(e.target.value) || 1)))}
-                                  className="w-12 text-center text-xs border border-slate-200 rounded px-1 py-1 font-mono"
-                                />
-                                <button
-                                  onClick={() => handleBorrowRequest(item)}
-                                  disabled={borrowLoading}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2.5 py-1.5 rounded-lg cursor-pointer"
-                                >
-                                  ยันยืน
-                                </button>
-                                <button
-                                  onClick={() => { setShowBorrowForm(null); setBorrowQty(1); }}
-                                  className="bg-slate-200 text-slate-600 text-[10px] px-2.5 py-1.5 rounded-lg cursor-pointer"
-                                >
-                                  ยกเลิก
-                                </button>
+                  {assets.length === 0 ? (
+                    <p className="text-slate-400 text-xs py-4 text-center">ไม่มีรายการวัสดุอุปกรณ์ในระบบ</p>
+                  ) : (
+                    Object.entries(
+                      assets.reduce((acc, item) => {
+                        const cat = item.category || 'ยังไม่ได้จัดหมวดหมู่';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(item);
+                        return acc;
+                      }, {} as Record<string, Asset[]>)
+                    ).map(([category, items]) => (
+                      <div key={category} className="space-y-3">
+                        <h5 className="font-heading font-bold text-slate-700 text-xs uppercase tracking-wider pl-1">{category}</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {(items as Asset[]).map((item) => (
+                            <div key={item.id} className="border border-slate-100 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-200 hover:shadow-sm transition-all bg-slate-50/50">
+                              <div>
+                                <div className="flex gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-2">
+                                      <h5 className="font-bold text-slate-900 text-sm flex-1 truncate">{item.name}</h5>
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 ${
+                                        item.type === 'consumable' 
+                                          ? 'bg-orange-50 text-orange-600 border-orange-100'
+                                          : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                      }`}>
+                                        {item.type === 'consumable' ? 'ใช้แล้วหมดไป' : 'คงทน'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] font-mono text-slate-500 mt-1 truncate">รหัส: {item.code || item.id}</p>
+                                    <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{item.description || "ไม่มีคำอธิบายอุปกรณ์"}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-3">
+                                  <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded inline-block ${
+                                    item.availableQty > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                                  }`}>
+                                    {item.availableQty > 0 ? (item.type === 'consumable' ? `พร้อมเบิก: ${item.availableQty}` : `พร้อมยืม: ${item.availableQty}`) : "ของหมด"} (จาก {item.totalQty})
+                                  </span>
+                                </div>
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => { setShowBorrowForm(item.id); setBorrowQty(1); }}
-                                disabled={item.availableQty <= 0}
-                                className={`flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-xl cursor-pointer ${
-                                  item.availableQty > 0 
-                                    ? "bg-slate-900 text-white hover:bg-slate-800" 
-                                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                }`}
-                              >
-                                <PlusCircle className="w-3.5 h-3.5" />
-                                {item.type === 'consumable' ? 'ทำเรื่องเบิก' : 'ทำเรื่องขอยืม'}
-                              </button>
-                            )}
-                          </div>
+
+                              <div className="mt-4 pt-3 border-t border-slate-100/60">
+                                {showBorrowForm === item.id ? (
+                                  <div className="flex flex-col gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="หมายเหตุ (เช่น เบิกไปทำงานวิชาอะไร)"
+                                      value={borrowNotes}
+                                      onChange={(e) => setBorrowNotes(e.target.value)}
+                                      className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-400"
+                                    />
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={item.availableQty}
+                                        value={borrowQty}
+                                        onChange={(e) => setBorrowQty(Math.min(item.availableQty, Math.max(1, parseInt(e.target.value) || 1)))}
+                                        className="w-14 text-center text-xs border border-slate-200 rounded-lg px-2 py-1.5 font-mono outline-none"
+                                      />
+                                      <button
+                                        onClick={() => handleBorrowRequest(item)}
+                                        disabled={borrowLoading}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors"
+                                      >
+                                        ยืนยัน
+                                      </button>
+                                      <button
+                                        onClick={() => { setShowBorrowForm(null); setBorrowQty(1); setBorrowNotes(""); }}
+                                        className="bg-slate-200 text-slate-600 text-xs px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-300 transition-colors"
+                                      >
+                                        ยกเลิก
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end">
+                                    <button
+                                      onClick={() => { setShowBorrowForm(item.id); setBorrowQty(1); setBorrowNotes(""); }}
+                                      disabled={item.availableQty <= 0}
+                                      className={`flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer transition-colors ${
+                                        item.availableQty > 0 
+                                          ? "bg-slate-900 text-white hover:bg-slate-800" 
+                                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                      }`}
+                                    >
+                                      <PlusCircle className="w-4 h-4" />
+                                      {item.type === 'consumable' ? 'ทำเรื่องเบิก' : 'ทำเรื่องขอยืม'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))
-                    )}
-                  </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 {/* History of my borrows */}

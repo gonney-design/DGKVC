@@ -32,12 +32,14 @@ export interface AttendanceRecord {
 }
 
 export interface Asset {
-  id: string;
+  id: string; // The original UUID or custom ID
+  code?: string; // Manually assigned item code
   name: string;
   description?: string;
   totalQty: number;
   availableQty: number;
   type: 'consumable' | 'durable';
+  category?: string; // New: Category for grouping
 }
 
 export interface BorrowRecord {
@@ -48,8 +50,9 @@ export interface BorrowRecord {
   classroomId: string;
   borrowDate: string; // ISO string
   returnDate?: string; // ISO string if returned
-  status: 'borrowed' | 'returned' | 'consumed';
+  status: 'borrowed' | 'pending_return' | 'returned' | 'consumed';
   qty: number;
+  notes?: string; // New: Notes for reason of borrowing
 }
 
 export interface Setting {

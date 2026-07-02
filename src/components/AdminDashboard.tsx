@@ -155,7 +155,8 @@ export default function AdminDashboard({
 
   // --- Assets states ---
   const [newAssetName, setNewAssetName] = useState("");
-  const [newAssetId, setNewAssetId] = useState("");
+  const [newAssetCode, setNewAssetCode] = useState("");
+  const [newAssetCategory, setNewAssetCategory] = useState("ยังไม่ได้จัดหมวดหมู่");
   const [newAssetQty, setNewAssetQty] = useState(1);
   const [newAssetDesc, setNewAssetDesc] = useState("");
   const [newAssetType, setNewAssetType] = useState<"consumable" | "durable">("durable");
@@ -600,22 +601,26 @@ export default function AdminDashboard({
 
   // Create Assets
   const handleAddAsset = async () => {
-    if (!newAssetId || !newAssetName || newAssetQty < 1) {
+    if (!newAssetName || newAssetQty < 1) {
       alert("กรุณากรอกข้อมูลอุปกรณ์ให้ครบถ้วน");
       return;
     }
     try {
+      const generatedId = "AST-" + Math.random().toString(36).substring(2, 8).toUpperCase();
       const item: Asset = {
-        id: newAssetId.trim(),
+        id: generatedId,
+        code: newAssetCode.trim() || generatedId,
         name: newAssetName.trim(),
         description: newAssetDesc.trim(),
+        category: newAssetCategory.trim(),
         totalQty: newAssetQty,
         availableQty: newAssetQty,
         type: newAssetType
       };
       await saveAsset(item);
-      setNewAssetId("");
+      setNewAssetCode("");
       setNewAssetName("");
+      setNewAssetCategory("ยังไม่ได้จัดหมวดหมู่");
       setNewAssetQty(1);
       setNewAssetDesc("");
       setNewAssetType("durable");
@@ -835,6 +840,7 @@ export default function AdminDashboard({
   // Calculate Asset stats for overview
   let durableBorrowed = 0;
   let consumableConsumed = 0;
+  const consumableUsageMap: Record<string, number> = {};
   
   borrowLogs.forEach(log => {
     const assetObj = assets.find(a => a.id === log.assetId);
@@ -843,9 +849,20 @@ export default function AdminDashboard({
         durableBorrowed += log.qty;
       } else if (assetObj.type === 'consumable' && log.status === 'consumed') {
         consumableConsumed += log.qty;
+        consumableUsageMap[assetObj.name] = (consumableUsageMap[assetObj.name] || 0) + log.qty;
       }
     }
   });
+
+  const consumableUsageData = Object.entries(consumableUsageMap)
+    .map(([name, qty]) => ({ name, จำนวนการเบิก: qty }))
+    .sort((a, b) => b.จำนวนการเบิก - a.จำนวนการเบิก)
+    .slice(0, 10);
+
+  const uniqueCategories = Array.from(new Set([
+    "ยังไม่ได้จัดหมวดหมู่", "ทั่วไป", "อุปกรณ์ถ่ายภาพ", "อุปกรณ์คอมพิวเตอร์", "เครื่องเขียน/สำนักงาน", "หนังสือ/สื่อ",
+    ...assets.map(a => a.category).filter(Boolean) as string[]
+  ]));
 
   const assetChartData = [
     { name: 'วัสดุคงทน (กำลังยืม)', qty: durableBorrowed },
@@ -1822,10 +1839,34 @@ export default function AdminDashboard({
             {/* TAB 5: ASSET AND BORROWINGS */}
             {activeTab === "assets" && (
               <div className="space-y-6">
+                <datalist id="categories-list">
+                  {uniqueCategories.map(c => <option key={c} value={c} />)}
+                </datalist>
                 <div className="border-b border-slate-100 pb-4">
                   <h3 className="font-heading font-bold text-lg text-slate-900">ระบบควบคุมพัสดุ และ จัดการยืมคืนของใช้</h3>
                   <p className="text-xs text-slate-500 mt-1">คอยเช็ค ยอมรับ หรือ ปฏิเสธ การเบิกยืมอุปกรณ์กราฟิกและสื่อส่วนกลางของสาขา</p>
                 </div>
+
+                {/* Consumable Data Visualizations */}
+                {consumableUsageData.length > 0 && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 mb-6">
+                    <h4 className="font-heading font-bold text-slate-800 text-sm mb-4 flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-indigo-500" />
+                      สถิติการเบิกใช้วัสดุสิ้นเปลือง (Top 10)
+                    </h4>
+                    <div className="h-[240px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={consumableUsageData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                          <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', fontSize: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                          <Bar dataKey="จำนวนการเบิก" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={32} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                   
@@ -1841,43 +1882,55 @@ export default function AdminDashboard({
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">เพิ่มพัสดุใหม่ในฐานข้อมูล</p>
                       <input
                         type="text"
-                        placeholder="รหัสพัสดุ (e.g. AST001)"
-                        value={newAssetId}
-                        onChange={(e) => setNewAssetId(e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 font-mono"
+                        placeholder="รหัสอ้างอิง/Barcode (ระบบจะสร้างให้ถ้าเว้นว่าง)"
+                        value={newAssetCode}
+                        onChange={(e) => setNewAssetCode(e.target.value)}
+                        className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 font-mono outline-none focus:border-indigo-400"
                       />
                       <input
                         type="text"
                         placeholder="ชื่อรายการพัสดุ/อุปกรณ์"
                         value={newAssetName}
                         onChange={(e) => setNewAssetName(e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2"
+                        className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-indigo-400"
                       />
-                      <select
-                        value={newAssetType}
-                        onChange={(e) => setNewAssetType(e.target.value as "consumable" | "durable")}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 font-medium"
-                      >
-                        <option value="durable">วัสดุคงทน (ต้องคืน)</option>
-                        <option value="consumable">วัสดุใช้แล้วหมดไป (ไม่ต้องคืน)</option>
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        placeholder="จำนวนพัสดุที่มีทั้งหมด"
-                        value={newAssetQty}
-                        onChange={(e) => setNewAssetQty(parseInt(e.target.value) || 1)}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          list="categories-list"
+                          type="text"
+                          placeholder="หมวดหมู่ (พิมพ์เพื่อเพิ่มใหม่)"
+                          value={newAssetCategory}
+                          onChange={(e) => setNewAssetCategory(e.target.value)}
+                          className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 font-medium outline-none focus:border-indigo-400"
+                        />
+                        <select
+                          value={newAssetType}
+                          onChange={(e) => setNewAssetType(e.target.value as "consumable" | "durable")}
+                          className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 font-medium outline-none focus:border-indigo-400"
+                        >
+                          <option value="durable">คงทน (ต้องคืน)</option>
+                          <option value="consumable">สิ้นเปลือง (ไม่ต้องคืน)</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">จำนวนทั้งหมด:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newAssetQty}
+                          onChange={(e) => setNewAssetQty(parseInt(e.target.value) || 1)}
+                          className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 outline-none focus:border-indigo-400"
+                        />
+                      </div>
                       <textarea
                         placeholder="คำอธิบายสั้นๆ เกี่ยวกับสเปกอุปกรณ์..."
                         value={newAssetDesc}
                         onChange={(e) => setNewAssetDesc(e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 h-16 resize-none"
+                        className="w-full text-[11px] border border-slate-200 rounded-lg px-2.5 py-2 h-14 resize-none outline-none focus:border-indigo-400"
                       />
                       <button
                         onClick={handleAddAsset}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-heading text-xs font-semibold py-2.5 rounded-lg transition-all cursor-pointer"
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-heading text-[11px] font-semibold py-2.5 rounded-lg transition-all cursor-pointer"
                       >
                         ลงทะเบียนอุปกรณ์
                       </button>
@@ -1887,10 +1940,10 @@ export default function AdminDashboard({
                     <div className="border border-slate-200 rounded-2xl max-h-[160px] overflow-y-auto bg-white divide-y divide-slate-100">
                       {assets.map((item) => (
                         <div key={item.id} className="p-3 flex justify-between items-center text-xs">
-                          <div>
-                            <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="font-semibold text-slate-800 flex items-center gap-1.5 truncate">
                               {item.name}
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 ${
                                 item.type === 'consumable' 
                                   ? 'bg-orange-50 text-orange-600 border-orange-100'
                                   : 'bg-indigo-50 text-indigo-600 border-indigo-100'
@@ -1898,13 +1951,28 @@ export default function AdminDashboard({
                                 {item.type === 'consumable' ? 'ใช้แล้วหมดไป' : 'คงทน'}
                               </span>
                             </p>
-                            <p className="text-[10px] text-slate-400 font-mono">คงเหลือ: {item.availableQty}/{item.totalQty}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-[10px] text-slate-400 font-mono">คงเหลือ: {item.availableQty}/{item.totalQty}</p>
+                              <input
+                                list="categories-list"
+                                type="text"
+                                defaultValue={item.category || "ยังไม่ได้จัดหมวดหมู่"}
+                                onBlur={async (e) => {
+                                  if (e.target.value !== item.category) {
+                                    await saveAsset({ ...item, category: e.target.value });
+                                    const updatedAssets = await getAssets();
+                                    setAssets(updatedAssets);
+                                  }
+                                }}
+                                className="text-[10px] w-28 border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 outline-none focus:border-indigo-400 bg-slate-50"
+                              />
+                            </div>
                           </div>
                           <button
                             onClick={() => handleDeleteAsset(item.id)}
-                            className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                            className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0 transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -1953,6 +2021,11 @@ export default function AdminDashboard({
                                   <td className="py-3 px-3">
                                     <p className="font-bold text-slate-800">{assetObj?.name || log.assetId}</p>
                                     <p className="text-[10px] text-slate-400 font-mono">จำนวน: {log.qty} ชิ้น</p>
+                                    {log.notes && (
+                                      <p className="text-[10px] text-indigo-600 font-medium italic mt-0.5 truncate max-w-[120px]">
+                                        "{log.notes}"
+                                      </p>
+                                    )}
                                   </td>
                                   <td className="py-3 px-3">
                                     <p className="font-semibold text-slate-700">{log.studentName}</p>
@@ -1963,18 +2036,20 @@ export default function AdminDashboard({
                                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
                                       log.status === "borrowed" 
                                         ? "bg-amber-50 text-amber-700 border-amber-200" 
+                                        : log.status === "pending_return"
+                                        ? "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
                                         : log.status === "consumed"
                                         ? "bg-orange-50 text-orange-600 border-orange-100"
-                                        : "bg-slate-100 text-slate-500"
+                                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
                                     }`}>
-                                      {log.status === "borrowed" ? "กำลังยืม" : log.status === "consumed" ? "เบิกใช้งาน" : "คืนแล้ว"}
+                                      {log.status === "borrowed" ? "กำลังยืม" : log.status === "pending_return" ? "รอตรวจสอบ" : log.status === "consumed" ? "เบิกใช้งาน" : "คืนแล้ว"}
                                     </span>
                                   </td>
                                   <td className="py-3 px-3 text-center">
-                                    {log.status === "borrowed" ? (
+                                    {(log.status === "borrowed" || log.status === "pending_return") ? (
                                       <button
                                         onClick={() => handleConfirmReturn(log)}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                        className={`${log.status === 'pending_return' ? 'bg-fuchsia-600 hover:bg-fuchsia-700 shadow-md shadow-fuchsia-500/20 animate-pulse' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-semibold text-[10px] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap`}
                                       >
                                         ยืนยันรับคืน
                                       </button>

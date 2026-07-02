@@ -145,7 +145,7 @@ export default function A4PrintReport({
         rowData.push(mark);
       });
       
-      rowData.push(stat.present, stat.absent, stat.total);
+      rowData.push(stat.present, stat.absent, stat.present);
       return rowData;
     });
 
@@ -259,7 +259,7 @@ export default function A4PrintReport({
                       })}
                       <td className="py-1 px-0.5 border-r border-slate-200 text-center text-emerald-700 print:text-black font-bold">{stat.present}</td>
                       <td className="py-1 px-0.5 border-r border-slate-200 text-center text-rose-700 print:text-black font-bold">{stat.absent}</td>
-                      <td className="py-1 px-0.5 text-center text-slate-800 print:text-black font-bold">{stat.total}</td>
+                      <td className="py-1 px-0.5 text-center text-slate-800 print:text-black font-bold">{stat.present}</td>
                     </tr>
                   );
                 })
